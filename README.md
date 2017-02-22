@@ -7,7 +7,7 @@ live-sdk is simple distro build system aimed at creating liveCDs
 
 live-sdk is designed to be used interactively from a terminal.
 It requires the following packages to be installed in addition to the
-dependencies required for `libdevuansdk`.
+[dependencies required for libdevuansdk](https://github.com/dyne/libdevuansdk/blob/master/README.md#requirements).
 
 ```
 xorriso squashfs-tools live-boot
