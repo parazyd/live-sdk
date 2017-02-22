@@ -52,6 +52,12 @@ load() {
 	req=(os arch)
 	ckreq || return 1
 
+	case $arch in
+		amd64) ;;
+		i386)  ;;
+		*) error "invalid arch specified"; zerr;;
+	esac
+
 	os_map=(
 		"devuan"    "$R/lib/libdevuansdk/libdevuansdk"
 	)
