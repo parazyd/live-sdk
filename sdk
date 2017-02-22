@@ -47,8 +47,9 @@ source $R/lib/zuper/zuper.init
 load() {
 	fn load "$@"
 	os="$1"
-	blend="$2"
-	req=(os)
+	arch="$2"
+	blend="$3"
+	req=(os arch)
 	ckreq || return 1
 
 	os_map=(
@@ -78,7 +79,7 @@ load() {
 
 	workdir="$R/tmp/${os}-${arch}-build"
 	strapdir="$workdir/bootstrap"
-	${=mkdir} -p $strapdir
+	mkdir -p $strapdir
 
 	export LANG=C
 	export LC_ALL=C
