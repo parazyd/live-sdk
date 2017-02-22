@@ -1,0 +1,93 @@
+#!/usr/bin/env zsh
+# Copyright (c) 2016-2017 Dyne.org Foundation
+# live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
+#
+# This file is part of live-sdk
+#
+# This source code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this source code. If not, see <http://www.gnu.org/licenses/>.
+
+livesdk_version="0.2"
+
+R=${LIVE_SDK-$PWD}
+
+DEBUG=1
+QUIET=0
+
+source $R/lib/zuper/zuper
+
+## global vars
+vars+=(livesdk_version)
+vars+=(R workdir strapdir)
+vars+=(os oslib blendlib)
+vars+=(MAKEOPTS)
+
+## global arrs
+arrs+=(extra_packages)
+
+## global maps
+maps+=(os_map blend_map)
+
+source $R/config
+#source $R/lib/helpers
+
+## conclude zuper initialization
+source $R/lib/zuper/zuper.init
+
+load() {
+	fn load "$@"
+	os="$1"
+	blend="$2"
+	req=(os)
+	ckreq || return 1
+
+	os_map=(
+		"devuan"    "$R/lib/libdevuansdk/libdevuansdk"
+	)
+
+	blend_map=(
+		"heads"     "https://git.devuan.org"
+	)
+
+	oslib="${os_map[$os]}"
+	blendlib="${blend_map[$blend]}"
+
+	[[ $blendlib =~ '^http' ]] && {
+		notice "grabbing blend from the internetz"
+		pushd $R/extra/blends
+			curl -Ls -O $blendlib
+		popd
+		blendlib="$R/extra/blends/$(basename $blendlib)"
+	}
+
+	[[ -f $oslib ]]    || { die "no valid distro specified"; exit 1 }
+	[[ -f $blendlib ]] || { warn "no valid blend specified" }
+
+	source $oslib
+	[[ -f $blendlib ]] && source $blendlib && act "$os blend leaded" && export BLEND=1
+
+	workdir="$R/tmp/${os}-${arch}-build"
+	strapdir="$workdir/bootstrap"
+	${=mkdir} -p $strapdir
+
+	export LANG=C
+	export LC_ALL=C
+
+	source $R/lib/zuper/zuper.init
+}
+
+TRAPZERR() { zerr; return $? }
+
+notice "live-sdk loaded"
+export PROMPT="%F{yellow}%(?..%? )%{$reset_color%}livesdk@%{$fg[red]%}%m %{$reset_color%} %{$fg[blue]%}%#%{$fg_bold[blue]%}%{$reset_color%} "
+
