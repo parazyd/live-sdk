@@ -63,7 +63,7 @@ load() {
 	)
 
 	blend_map=(
-		"heads"     "https://git.devuan.org"
+		"heads"     "https://git.devuan.org/heads/build-system/raw/master/heads.blend"
 	)
 
 	oslib="${os_map[$os]}"
@@ -71,6 +71,7 @@ load() {
 
 	[[ $blendlib =~ '^http' ]] && {
 		notice "grabbing blend from the internetz"
+		mkdir -p $R/extra/blends
 		pushd $R/extra/blends
 			curl -Ls -O $blendlib
 		popd
