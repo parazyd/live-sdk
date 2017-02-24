@@ -21,6 +21,7 @@
 ## live-sdk configuration
 ## ----------------------
 
+MAKEOPTS="-j$(grep -c 'processor' /proc/cpuinfo)"
 
 ## extra_packages for all images
 extra_packages+=(busybox-syslogd busybox-static openntpd)
