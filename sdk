@@ -53,8 +53,8 @@ load() {
 	ckreq || return 1
 
 	case $arch in
-		amd64) ;;
-		i386)  ;;
+		amd64) earch="x86_64" ;;
+		i386)  earch="i686"   ;;
 		*) error "invalid arch specified"; zerr;;
 	esac
 
