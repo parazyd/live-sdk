@@ -23,6 +23,23 @@
 
 MAKEOPTS="-j$(grep -c 'processor' /proc/cpuinfo)"
 
+
 ## extra_packages for all images
-extra_packages+=(busybox-syslogd busybox-static openntpd)
-purge_packages+=(rsyslog)
+extra_packages+=(
+	live-config
+	live-config-sysvinit
+	syslinux
+	syslinux-common
+	isolinux
+	rsync
+	squashfs-tools
+	xorriso
+	cryptsetup
+)
+
+
+## hashmap of available blends
+blend_map=(
+	"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
+	"heads"          "$R/../heads.blend"
+)

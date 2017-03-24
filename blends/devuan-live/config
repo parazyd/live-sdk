@@ -1,0 +1,19 @@
+#!/usr/bin/env zsh
+## configuration file for devuan-live blend
+
+vars+=(username userpass default_shell)
+arrs+=(custom_deb_packages)
+
+blend_name="devuan-live"
+blend_vers="1.0"
+
+username="devuan"
+userpass="devuan"
+
+default_shell="/bin/bash"
+
+custom_deb_packages=(
+	#refracta-lang_1.1.deb
+	refractainstaller-base_9.2.1_all.deb
+	refractasnapshot-base_10.0.2_all.deb
+)

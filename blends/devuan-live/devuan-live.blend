@@ -1,0 +1,124 @@
+#!/usr/bin/env zsh
+# Copyright (c) 2017 Dyne.org Foundation
+# live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
+#
+# This file is part of live-sdk
+#
+# This source code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this source code. If not, see <http://www.gnu.org/licenses/>.
+
+BLENDPATH="${BLENDPATH:-$(dirname $0)}"
+
+source $BLENDPATH/config
+
+blend_preinst() {
+	fn blend_preinst
+	req=(blend_name username userpass)
+	ckreq || return 1
+
+	notice "executing $blend_name preinst"
+
+	add-user $username $userpass
+
+	notice "copying blend-specific debs"
+	cp -fv "$BLENDPATH"/*.deb "$R/extra/custom-packages"
+}
+
+blend_postinst() {
+	fn blend_postinst
+	req=(strapdir blend_name)
+	ckreq || return 1
+
+	notice "executing $blend_name postinst"
+
+	install-custdebs || zerr
+	pushd "$strapdir"
+		sudo rsync -avx "$BLENDPATH"/rootfs-overlay/* . || zerr
+	popd
+
+	blend_finalize || zerr
+}
+
+iso_write_isolinux_cfg() {
+	fn iso_write_isolinux_cfg "(override)"
+	req=(workdir arch username)
+	ckreq || return 1
+
+	notice "writing isolinux configuration"
+
+	cat <<EOF | sudo tee ${workdir}/binary/isolinux/isolinux.cfg >/dev/null
+ui vesamenu.c32
+prompt 0
+menu title devuan-live boot menu
+timeout 70
+menu background /isolinux/splash.png
+menu color title	* #FFFFFFFF *
+menu color border	* #00000000 #00000000 none
+menu color sel		* #ffffffff #A1B067 *
+menu color hotsel	1;7;37;40 #ffffffff #A1B067 *
+menu color tabmsg	* #E5FD91 #00000000 *
+menu color cmdline 0 #E5FD91 #00000000
+menu vshift 12
+menu rows 12
+
+label live-${arch}
+	menu label devuan-live (${arch})
+	menu default
+	linux /live/vmlinuz
+	append initrd=/live/initrd boot=live username=${username}
+
+label toram
+	menu label devuan-live (${arch}) (load to RAM)
+	linux /live/vmlinuz
+	append initrd=/live/initrd boot=live username=${username} toram
+
+label failsafe
+	menu label devuan-live (${arch}) (failsafe)
+	kernel /live/vmlinuz noapic noapm nodma nomce nolapic nosmp vga=normal
+	append initrd=/live/initrd boot=live
+
+endtext
+EOF
+
+	notice "copying isolinux overlay"
+	sudo mkdir -p "$workdir"/binary/{live,isolinux}
+	sudo cp -rav "$BLENDPATH"/isolinux-overlay/* "$workdir"/binary/isolinux/
+}
+
+blend_finalize() {
+	fn blend_finalize
+	req=(strapdir username default_shell)
+	ckreq || return 1
+
+	cat <<EOF | sudo tee ${strapdir}/finalize >/dev/null
+#!/bin/sh
+
+## permissions
+for i in cdrom floppy audio dip video plugdev netdev lpadmin scanner; do
+	gpasswd -a ${username} \$i
+done
+
+chsh -s "${default_shell}" ${username}
+chown -R 1000:1000 /home/${username}
+
+grep -q GRUB_THEME /etc/default/grub || {
+	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" >> /etc/default/grub
+}
+
+rm -f /etc/fstab
+
+apt-get clean
+updatedb
+EOF
+	chroot-script -d finalize || zerr
+}
