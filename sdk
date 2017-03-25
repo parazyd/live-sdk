@@ -49,7 +49,7 @@ load() {
 	os="$1"
 	arch="$2"
 	blend="$3"
-	req=(os arch blend_map)
+	req=(os arch)
 	ckreq || return 1
 
 	case $arch in
@@ -60,6 +60,11 @@ load() {
 
 	os_map=(
 		"devuan"    "$R/lib/libdevuansdk/libdevuansdk"
+	)
+
+	blend_map=(
+		"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
+		"heads"          "$R/../heads.blend"
 	)
 
 	oslib="${os_map[$os]}"

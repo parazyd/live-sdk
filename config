@@ -36,10 +36,3 @@ extra_packages+=(
 	xorriso
 	cryptsetup
 )
-
-
-## hashmap of available blends
-blend_map=(
-	"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
-	"heads"          "$R/../heads.blend"
-)
