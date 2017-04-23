@@ -34,14 +34,14 @@ deb ${mirror} ${release} ${section}
 deb ${mirror} ${release}-updates ${section}
 deb ${mirror} ${release}-security ${section}
 #deb ${mirror} ${release}-backports ${section}
-deb ${mirror} experimental ${section}
+deb http://packages.devuan.org/devuan experimental ${section}
 
 ## source repositories
 #deb-src ${mirror} ${release} ${section}
 #deb-src ${mirror} ${release}-updates ${section}
 #deb-src ${mirror} ${release}-security ${section}
 #deb-src ${mirror} ${release}-backports ${section}
-#deb-src ${mirror} experimental ${section}
+#deb-src http://packages.devuan.org/devuan experimental ${section}
 
 EOF
 }
