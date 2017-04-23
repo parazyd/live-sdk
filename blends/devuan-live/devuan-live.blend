@@ -1,8 +1,10 @@
 #!/usr/bin/env zsh
 # Copyright (c) 2017 Dyne.org Foundation
 # live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
+# devuan-live blend patches maintained by fsmithred
 #
 # This file is part of live-sdk
+#
 #
 # This source code is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,6 +42,8 @@ blend_postinst() {
 	ckreq || return 1
 
 	notice "executing $blend_name postinst"
+
+	[[ -n "$mkefi" ]] && iso_make_efi
 
 	install-custdebs || zerr
 	pushd "$strapdir"
@@ -95,6 +99,130 @@ EOF
 	sudo cp -rav "$BLENDPATH"/isolinux-overlay/* "$workdir"/binary/isolinux/
 }
 
+## uefi code borrowed and adapted from David Hare, who borrowed and adapted it
+## from similar scripts by Colin Watson and Patrick J. Volkerding.
+iso_make_efi() {
+	fn iso_make_efi
+	req=(workdir efi_work)
+	ckreq || return 1
+	set -x
+	notice "creating efi boot files"
+
+	_tempdir="$(mktemp -d /tmp/work_temp.XXXX)"
+
+	## for initial grub.cfg
+	mkdir -p "$_tempdir"/boot/grub
+
+
+	cat >"$_tempdir"/boot/grub/grub.cfg <<EOF
+search --file --set=root /isolinux/isolinux.cfg
+set prefix=(\$root)/boot/grub
+source \$prefix/x86_64-efi/grub.cfg
+EOF
+
+	mkdir -p "$efi_work"
+	pushd "$efi_work"
+
+	rm -rf boot efi
+	rm -rf efi
+	mkdir -p boot/grub/x86_64-efi
+	mkdir -p efi/boot
+
+	## efi partition mods
+	find /usr/lib/grub/x86_64-efi -type -f -name "part_*\.mod" \
+		-exec sh -c 'for f do echo insmod $(basename -- "$f" .mod); done' sh {} + \
+		>> boot/grub/x86_64-efi/grub.cfg
+
+	## Additional modules so we don't boot in blind mode.
+	## I don't know which ones are really needed.
+	_efimods=(efi_gop efi_uga ieee1275_fb vbe vga video_bochs
+		video_cirrus jpeg png gfxterm)
+
+	for i in $_efimods; do
+		print "insmod $i" >> boot/grub/x86_64-efi/grub.cfg
+	done
+	print "source /boot/grub/grub.cfg" >> boot/grub/x86_64-efi/grub.cfg
+
+	pushd "$_tempdir"
+		## make a tarred "memdisk" to embed in the grub image
+		tar -cvf memdisk boot
+
+		## make the grub image
+		_grubmods=(search iso9660 configfile normal memdisk tar cat part_msdos
+			part_gpt fat ext2 ntfs ntfscomp hfsplus chain boot linux)
+		grub-mkimage \
+			-O "x86_64-efi" \
+			-m "memdisk" \
+			-o "bootx64.efi" \
+			-p '(memdisk)/boot/grub' \
+			$_grubmods
+	popd
+
+	## copy the grub image to efi/boot (to go later in the device's root)
+	cp "$_tempdir"/bootx64.efi efi/boot
+
+	## Do the boot image "boot/grub/efiboot.img"
+	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440
+	/sbin/mkdosfs -F 12 boot/grub/efiboot.img
+
+	sudo mkdir -p img-mnt/efi/boot
+	sudo mount -o loop boot/grub/efiboot.img img-mnt
+	sudo cp "$_tempdir"/bootx64.efi img-mnt/efi/boot/
+
+	cp /usr/lib/grub/x86_64-efi/* boot/grub/x86_64-efi/
+
+	## if this doesn't work try another font from the same place
+	## (grub's default, unicode.pf2, is much larger)
+	## Either of these will work, and they look the same to me.
+	## Unicode seems to work with qemu. -fsr
+
+	#cp /usr/share/grub/ascii.pf2 boot/grub/font.pf2
+	cp /usr/share/grub/unicode.pf2 boot/grub/font.pf2
+
+	## doesn't need to be root-owned
+	#sudo chown -R 1000:1000 $(pwd) 2>/dev/null
+
+	## Cleanup efi temps
+	sudo umount img-mnt
+	sudo rmdir img-mnt
+	rm -rf "$_tempdir"
+
+	popd # $efi_work
+
+
+	## Copy efi files to iso
+	pushd $workdir
+	sudo rsync -avx "$efi_work"/boot binary/
+	sudo rsync -avx "$efi_work"/efi  binary/
+	popd
+
+	## Do the main grub.cfg (which gets loaded last):
+	cat <<EOF | sudo tee ${workdir}/binary/boot/grub/grub.cfg
+if loadfont $prefix/font.pf2 ; then
+	set gfxmode=640x480
+	insmod efi_gop
+	insmod efi_uga
+	insmod video_bochs
+	insmod video_cirrus
+	insmod gfxterm
+	insmod jpeg
+	insmod png
+	terminal_output gfxterm
+fi
+
+background_image /boot/grub/splash.png
+set menu_color_normal=white/black
+set menu_color_highlight=dark-gray/white
+set timeout=6
+
+menuentry "${os} (defaults)" {
+	set gfxpayload=keep
+	linux   /live/vmlinuz boot=live username=${username}
+	initrd  /live/initrd
+}
+EOF
+}
+
 blend_finalize() {
 	fn blend_finalize
 	req=(strapdir username default_shell)
@@ -110,6 +238,8 @@ done
 
 chsh -s "${default_shell}" ${username}
 chown -R 1000:1000 /home/${username}
+cp /home/${username}/Desktop/refractainstaller.desktop /usr/share/applications/
+chmod +x /home/${username}/Desktop/refractainstaller.desktop
 
 grep -q GRUB_THEME /etc/default/grub || {
 	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" >> /etc/default/grub

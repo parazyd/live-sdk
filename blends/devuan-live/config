@@ -1,19 +1,80 @@
 #!/usr/bin/env zsh
 ## configuration file for devuan-live blend
 
-vars+=(username userpass default_shell)
+vars+=(username userpass default_shell mkefi grubversion)
 arrs+=(custom_deb_packages)
 
 blend_name="devuan-live"
-blend_vers="1.0"
 
 username="devuan"
 userpass="devuan"
-
 default_shell="/bin/bash"
 
-custom_deb_packages=(
-	#refracta-lang_1.1.deb
-	refractainstaller-base_9.2.1_all.deb
-	refractasnapshot-base_10.0.2_all.deb
+grubversion="grub-pc"
+image_name="${os}_${release}_${version}_${arch}"
+
+case "$4" in
+	uefi)
+		grubversion="grub-efi-${arch}"
+		image_name="${os}_${release}_${version}_${arch}_uefi"
+		mkefi="yes"
+		efi_work="$BLENDPATH/efi-files"
+		;;
+esac
+
+extra_packages+=(
+	lsof
+	bash-completion
+	texinfo
+	acpi-support-base
+	aptitude
+	apt-listchanges
+	discover
+	dnsutils
+	doc-debian
+	docutils-common
+	docutils-doc
+	ftp
+	gettext
+	gnupg2
+	gparted
+	$grubversion
+	laptop-detect
+	mlocate
+	mutt
+	ncurses-term
+	nfs-common
+	procmail
+	reportbug
+	telnet
+	usbutils
+	w3m
+	whois
+	task-desktop
+	task-english
+	task-xfce-desktop
+	task-print-server
+)
+
+purge_packages=(
+	btrfs-tools
+	debian-keyring
+	elinks
+	elinks-data
+	git
+	git-core
+	git-man
+	liberror-perl
+	libfsplib0
+	libtre5
+	openntpd
+	openssh-server
+	openssh-sftp-server
+	tmux
+	zsh
+	zsh-common
+)
+
+custom_deb_packages+=(
+	yad_0.27.0-1_${arch}.deb
 )
