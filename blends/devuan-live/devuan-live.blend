@@ -69,9 +69,9 @@ blend_postinst() {
 	[[ -n "$mkefi" ]] && iso_make_efi
 
 	install-custdebs || zerr
-	pushd "$strapdir"
-		sudo rsync -avx --no-o --no-g "$BLENDPATH"/rootfs-overlay/* . || zerr
-	popd
+	#pushd "$strapdir"
+	#	sudo rsync -avx --no-o --no-g "$BLENDPATH"/rootfs-overlay/* . || zerr
+	#popd
 
 	blend_finalize || zerr
 }
@@ -260,12 +260,13 @@ for i in cdrom floppy audio dip video plugdev netdev lpadmin scanner; do
 done
 
 chsh -s "${default_shell}" ${username}
-chown -R 1000:1000 /home/${username}
-cp /home/${username}/Desktop/refractainstaller.desktop /usr/share/applications/
+cp /usr/share/applications/refractainstaller.desktop /home/${username}/Desktop/
 chmod +x /home/${username}/Desktop/refractainstaller.desktop
+chown -R 1000:1000 /home/${username}
 
 grep -q GRUB_THEME /etc/default/grub || {
-	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" >> /etc/default/grub
+	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" \
+		>> /etc/default/grub
 }
 
 rm -f /etc/fstab
