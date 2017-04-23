@@ -70,7 +70,7 @@ blend_postinst() {
 
 	install-custdebs || zerr
 	pushd "$strapdir"
-		sudo rsync -avx "$BLENDPATH"/rootfs-overlay/* . || zerr
+		sudo rsync -avx --no-o --no-g "$BLENDPATH"/rootfs-overlay/* . || zerr
 	popd
 
 	blend_finalize || zerr
