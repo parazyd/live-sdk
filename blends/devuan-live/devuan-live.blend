@@ -152,7 +152,7 @@ EOF
 	mkdir -p efi/boot
 
 	## efi partition mods
-	find /usr/lib/grub/x86_64-efi -type -f -name "part_*\.mod" \
+	find /usr/lib/grub/x86_64-efi -type f -name "part_*\.mod" \
 		-exec sh -c 'for f do echo insmod $(basename -- "$f" .mod); done' sh {} + \
 		>> boot/grub/x86_64-efi/grub.cfg
 

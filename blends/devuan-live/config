@@ -15,6 +15,7 @@ image_name="${os}_${release}_${version}_${arch}"
 
 case "$4" in
 	uefi)
+		notice "UEFI build enabled"
 		grubversion="grub-efi-${arch}"
 		image_name="${os}_${release}_${version}_${arch}_uefi"
 		mkefi="yes"
