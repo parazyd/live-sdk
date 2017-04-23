@@ -23,6 +23,29 @@ BLENDPATH="${BLENDPATH:-$(dirname $0)}"
 
 source $BLENDPATH/config
 
+conf_print_sourceslist() {
+	fn conf_print_sourceslist "(override)"
+	req=(mirror release section)
+	ckreq || return 1
+
+	cat << EOF
+## package repositories
+deb ${mirror} ${release} ${section}
+deb ${mirror} ${release}-updates ${section}
+deb ${mirror} ${release}-security ${section}
+#deb ${mirror} ${release}-backports ${section}
+deb ${mirror} experimental ${section}
+
+## source repositories
+#deb-src ${mirror} ${release} ${section}
+#deb-src ${mirror} ${release}-updates ${section}
+#deb-src ${mirror} ${release}-security ${section}
+#deb-src ${mirror} ${release}-backports ${section}
+#deb-src ${mirror} experimental ${section}
+
+EOF
+}
+
 blend_preinst() {
 	fn blend_preinst
 	req=(blend_name username userpass)

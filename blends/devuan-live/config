@@ -54,6 +54,10 @@ extra_packages+=(
 	task-english
 	task-xfce-desktop
 	task-print-server
+	#refractasnapshot-base
+	refractasnapshot-gui
+	#refractainstaller-base
+	refractainstaller-gui
 )
 
 purge_packages=(
