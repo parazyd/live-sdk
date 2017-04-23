@@ -12,7 +12,7 @@ It requires the following packages to be installed in addition to the
 `sudo` permissions are required for the user that is running the build.
 
 ```
-xorriso squashfs-tools live-boot
+xorriso squashfs-tools live-boot syslinux-common
 ```
 
 ## Initial setup
