@@ -126,7 +126,7 @@ EOF
 ## from similar scripts by Colin Watson and Patrick J. Volkerding.
 iso_make_efi() {
 	fn iso_make_efi
-	req=(workdir efi_work)
+	req=(strapdir workdir efi_work)
 	ckreq || return 1
 	set -x
 	notice "creating efi boot files"
@@ -152,7 +152,7 @@ EOF
 	mkdir -p efi/boot
 
 	## efi partition mods
-	find /usr/lib/grub/x86_64-efi -type f -name "part_*\.mod" \
+	find $strapdir/usr/lib/grub/x86_64-efi -type f -name "part_*\.mod" \
 		-exec sh -c 'for f do echo insmod $(basename -- "$f" .mod); done' sh {} + \
 		>> boot/grub/x86_64-efi/grub.cfg
 
@@ -188,11 +188,12 @@ EOF
 	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440
 	/sbin/mkdosfs -F 12 boot/grub/efiboot.img
 
-	sudo mkdir -p img-mnt/efi/boot
+	sudo mkdir -p img-mnt
 	sudo mount -o loop boot/grub/efiboot.img img-mnt
+	sudo mkdir -p img-mnt/efi/boot
 	sudo cp "$_tempdir"/bootx64.efi img-mnt/efi/boot/
 
-	cp /usr/lib/grub/x86_64-efi/* boot/grub/x86_64-efi/
+	cp $strapdir/usr/lib/grub/x86_64-efi/* boot/grub/x86_64-efi/
 
 	## if this doesn't work try another font from the same place
 	## (grub's default, unicode.pf2, is much larger)
@@ -200,7 +201,7 @@ EOF
 	## Unicode seems to work with qemu. -fsr
 
 	#cp /usr/share/grub/ascii.pf2 boot/grub/font.pf2
-	cp /usr/share/grub/unicode.pf2 boot/grub/font.pf2
+	cp $strapdir/usr/share/grub/unicode.pf2 boot/grub/font.pf2
 
 	## doesn't need to be root-owned
 	#sudo chown -R 1000:1000 $(pwd) 2>/dev/null
