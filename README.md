@@ -11,8 +11,16 @@ It requires the following packages to be installed in addition to the
 
 `sudo` permissions are required for the user that is running the build.
 
+### Devuan
+
 ```
 xorriso squashfs-tools live-boot syslinux-common
+```
+
+### Gentoo
+
+```
+dev-libs/libisoburn sys-fs/squashfs-tools sys-boot/syslinux
 ```
 
 ## Initial setup
