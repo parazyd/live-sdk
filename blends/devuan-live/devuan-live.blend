@@ -172,14 +172,11 @@ EOF
 		tar -cvf memdisk boot
 
 		# make the grub image
-		cat <<EOF | sudo tee ${strapdir}/grubmkimage
-#!/bin/sh
-grub-mkimage -O "x86_64-efi" -m "memdisk" -o "bootx64.efi" \
-	-p '(memdisk)/boot/grub' \
-		search iso9660 configfile normal memdisk tar cat \
-		part_msdos part_gpt fat ext2 ntfs ntfscomp hfsplus \
-		chain boot linux
-EOF
+		grub-mkimage -O "x86_64-efi" -m "memdisk" -o "bootx64.efi" \
+			-p '(memdisk)/boot/grub' \
+				search iso9660 configfile normal memdisk tar cat \
+				part_msdos part_gpt fat ext2 ntfs ntfscomp hfsplus \
+				chain boot linux
 		chroot-script -d grubmkimage
 	popd
 
@@ -188,7 +185,7 @@ EOF
 
 	# Do the boot image "boot/grub/efiboot.img"
 	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440
-	/sbin/mkdosfs -F 12 boot/grub/efiboot.img
+	mkfs.vfat -F 12 boot/grub/efiboot.img
 
 	sudo mkdir img-mnt
 	sudo mount -o loop boot/grub/efiboot.img img-mnt
