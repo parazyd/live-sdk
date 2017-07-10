@@ -1,0 +1,34 @@
+#!/bin/bash
+# adjust fontsizes; $0 +|-
+# (c) J.Reisenweber 2017, GPLv2
+
+PROPLIST=$(cat <<EndOfList
+xsettings /Gtk/FontName
+xfwm4 /general/title_font
+EndOfList
+)
+
+case $1 in
+  +|up|larger)     A=2; B=3 ;;
+  -|down|smaller)  A=3; B=2 ;;
+  *)               echo "wrong parameter $1"; exit 5 ;;
+esac;
+
+
+adjprop(){
+  echo -n "$1 $2: "
+  local VAL=$(xfconf-query -c $1 -p $2)
+  local FONT=${VAL%%[0-9]*}
+  local SIZE=${VAL##$FONT}
+  echo -n "\"${FONT}${SIZE}\" -> "
+  SIZE=$(( SIZE * B / A ))
+  echo  "\"${FONT}${SIZE}\""
+  xfconf-query -c $1 -p $2 -s "${FONT}${SIZE}"
+  return $?
+}
+
+echo "$PROPLIST" | while read CHANNEL PROPERTY;
+do
+  adjprop $CHANNEL $PROPERTY;
+done;
+exit

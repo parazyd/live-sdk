@@ -1,0 +1,1818 @@
+#!/usr/bin/env bash
+
+version="Refracta Installer (Yad) 9.2.1 (20170521)"
+
+TEXTDOMAIN=refractainstaller-gui
+TEXTDOMAINDIR=/usr/share/locale/
+
+# Copyright 2011-2017 fsmithred@gmail.com
+# Portions may be copyright Dean Linkous and/or David Hare and/or others.
+# Based on refractainstaller-8.0.3 by Dean Linkous
+# License: GPL-3
+# This is free software with NO WARRANTY. Use at your own risk!
+
+
+# DESCRIPTION
+# This script is used for installing a live system to a hard drive. User
+# input is via popup windows created by yad. It should be run from
+# a terminal; if it's started from a menu item or a panel launcher, it
+# should be run in a persistent terminal, so that progress messages can
+# be seen and for user input in a few places.
+#
+# There are two modes for installation - Simple or Expert
+#   Simple Mode:
+# Create rsync excludes file if default file is missing.
+# User can run partitioner inside the installer or skip it.
+# User selects partition for installation. Bootloader goes to /dev/sda.
+# Summary window asks to proceed with installation.
+# Stuff happens without interaction.
+#
+#  Expert Mode:
+# User selects installation options - change username, select up to three
+# partitions (/, /boot, /home), select filesystem type for each partition, 
+# choose whether to encrypt partitions or not, choose whether to write 
+# random data or zeros to partitions.
+# User has option to exit and use custom excludes file.
+# User can run partitioner inside the installer.
+# Summary window asks to proceed with installation.
+# Stuff happens with some interaction (passwords, username, edit /etc/sudoers)
+#
+#  Stuff:
+# Cleanup (in case of previous aborted run)
+# Create encrypted volumes *(Expert mode only)
+# Write random data or zeros *
+# Mount partition(s) and create filesystem(s)
+# Copy system with rsync
+# Create swapfile or use existing swap partition
+# Copy update-initramfs
+# Set up fstab
+# Set up crypttab *
+# Install bootloader
+# Cleanup
+# Change username and passwords, edit /etc/sudoers *
+
+
+# If you want to change any defaults, change them in the configfile.
+# Default is /etc/refractainstaller.conf
+# If you want to use a different config file for testing, change this
+# variable. Normally, users should not edit anything in this script.
+
+
+
+configfile="/etc/refractainstaller.conf"
+
+if [[ -f $configfile ]]; then
+    source $configfile
+else
+	yad --title=$"Warning" --window-icon=error \
+	--button=$"Exit":0 --center \
+	--text=$"  Config file $configfile is missing.  
+  "
+	echo $" Config file $configfile is missing."
+	exit 1
+fi
+
+
+# greeter window title
+if [ -z "$window_title" ]; then
+window_title="$version"
+fi
+
+show_help () {
+	printf "$help_text"
+	exit 0
+}
+
+help_text=$"
+	Usage:  $0  [option]
+	
+	Run refractainstaller-yad from a terminal with no options  
+	or select Refracta Installer  from the System menu to install 
+	a running live-CD or live-usb-hdd to a hard drive. 
+	
+	
+	valid options:
+		-h, --help		show this help text
+		-v, --version	display the version information
+		-d. --debug		debug mode
+		
+"
+
+while [[ $1 == -* ]]; do
+	case "$1" in
+	
+		-h|--help)
+			show_help ;;
+		
+		-v|--version)
+			printf "\n$version\n\n" 
+			exit 0 ;;
+			
+		-d|--debug)
+			DEBUG="yes"
+			break ;;
+		
+		*) 
+			printf $"\t invalid option: $1 \n\n"
+			printf $"\t Try:  $0 -h for full help. \n\n"
+			exit 1 ;;
+    esac
+done
+
+if [ "$debug" = "yes" ] || [ "$DEBUG" = "yes" ]; then
+	set -x
+fi
+
+# Check that xserver is running and user is root.
+[[ $DISPLAY ]] || { echo $"There is no xserver running. Exiting..." ; exit 1 ; }
+if [[ $(id -u) -ne 0 ]] ; then
+	yad --title=$"Error" --window-icon=error --center --text=$" 
+	You need to be root!
+"
+	exit 1
+fi
+
+# wrapper script starts installer in xterm. 
+clear
+echo $"DO NOT close this terminal window until the installation is finished."
+
+# Record errors in a logfile.
+exec 2>"$error_log"
+
+#******************************************************************
+
+# Make sure yad is installed, and check the version.
+if [[ -f /usr/bin/yad ]] ; then
+	yadversion=$(yad --version | cut -d. -f2)
+	if [[ $yadversion < 17 ]]; then
+		yad --title=$"Error" --window-icon=error --center --text=$"
+	The version of Yad is too old. You need 0.17.1.1 or later.
+"
+		echo $"
+	The version of Yad is too old. You need 0.17.1.1 or later. If Zenity
+	is installed, you can run refractainstaller-gui instead.
+"
+		exit 1
+	fi
+else
+	echo $"Yad is not installed. To use the cli version instead, run 
+'refractainstaller' from a root terminal.
+Exiting..."
+	exit 1
+fi
+
+
+###  TEMPORARY WARNING  ###  Remove this when uefi is merged into this installer.
+#
+# Abort if the system has booted with UEFI. This installer won't do it.
+if [[ -d /sys/firmware/efi ]]; then
+	yad --warning --title=$"Warning" --image=gtk-dialog-warning \
+		--button=$"OK":0 --text=$"
+Warning. It appears you have booted on a system that uses UEFI. 
+This version of refractainstaller doesn't know how to do that.
+
+If you have a good understanding of UEFI, you can try the 
+experimental uefi installer: /usr/bin/refractainstaller-uefi. 
+
+Read the uefi_install.readme first! 
+See: /usr/lib/refractainstaller/uefi_install.readme
+"
+	exit 0
+fi
+
+#******************************************************************
+
+if [[ ! -d /lib/live/mount/medium ]] && [[ ! -d /lib/live/mount/findiso ]] && [[ ! -d /lib/live/mount/fromiso ]] && [[ ! -d /lib/live/mount/persistence ]]; then
+	live_session_warning=$" ###	WARNING: Not running from live-CD or live-USB	### 
+ ###	or unsupported configuration. Be sure you know	### 
+ ###	what you are doing. This may not work.			### "
+fi
+
+
+# Greeting window
+yad --title="$window_title" --width=480 \
+	--button=$"Continue":0 --button=$"Exit":1 --center \
+	--text=$"$live_session_warning
+
+ This utility will install a running live-CD or live-USB to your hard drive.
+
+ This is free software that comes with no warranty or guarantee of any 
+ type, including but not limited to express, implied, merchantability or 
+ fitness of purpose. 
+
+ Copyright 2011-2017 fsmithred@gmail.com, 
+ based on refractainstaller-8.0.3 by Dean Linkous. \n Version: $version \n\n\
+ ${custom_text} \n
+"
+mode="$?"
+	case $mode in
+		0) install="expert" ;;
+		1) exit 0 ;;
+	esac
+
+
+# determine grub version now, it gets used for installing the bootloader and
+# preventing simple install from using ext4 with grub-legacy or grub-gfx.
+	grubversion=$(dpkg -l | egrep "ii|hi" | grep -v bin | grep -v doc | awk '$2 ~ "grub-[glp]" { print $2}')
+#	grubversion="grub-legacy"   # for testing, comment out the above line and uncomment this one
+
+
+# function to exit the script if there are errors
+check_exit () {
+exit_code="$?"
+if [[ $exit_code -ne 0 ]] ; then
+   yad --question --title=$"Error" --window-icon=error --center --button=$"Continue":0 --button=$"Exit now":1 \
+   --text=$"Error detected: $exit_code  $error_message
+\nSee $error_log for details. \n\nThis may not be fatal.. Press \"Continue\" to proceed anyway"
+
+   if [[ $? -ne 0 ]] ; then
+   cleanup
+   exit 1
+   fi
+fi
+}
+
+
+copy_excludes () {
+        cat > "$rsync_excludes" <<EOF
+# It is safe to delete this file after installation.
+
+- /dev/*
+- /cdrom/*
+- /media/*
+- /target
+- /swapfile
+- /mnt/*
+- /sys/*
+- /proc/*
+- /tmp/*
+- /live
+- /boot/grub/grub.cfg
+- /boot/grub/menu.lst
+- /boot/grub/device.map
+- /etc/udev/rules.d/70-persistent-cd.rules
+- /etc/udev/rules.d/70-persistent-net.rules
+- /etc/fstab
+- /etc/fstab.d
+- /etc/mtab
+- /home/snapshot/
+- /home/*/.gvfs
+
+# Added for newer version of live-config/live-boot
+# in sid (to become Jessie)
+- /lib/live/overlay
+- /lib/live/image
+- /lib/live/rootfs
+- /lib/live/mount
+- /run/*
+
+EOF
+
+    chmod 666 "$rsync_excludes"
+}
+
+
+
+# Check that rsync excludes file exists, or create one.
+if ! [[ -f  $rsync_excludes ]] ; then
+    yad --title=$"Warning" --window-icon=error --center \
+    --button=$"Continue":0 --button=$"Exit":1 \
+    --text=$"  There is no rsync excludes file, or its name does not match what this script expects.  
+  You should continue and let the script create one, or if you have a custom excludes file,
+  and you know what you're doing, you can exit the script and edit the 
+  rsync_excludes variable in $configfile so that it matches the name 
+  and path of your custom file.
+    
+  If you have any other drives or partitions mounted that you don't want
+  to be copied, unmount them or edit the excludes file to list them."
+    if [[ $? = 0 ]] ; then
+		rsync_excludes="$(pwd)/installer_exclude.list"
+        copy_excludes
+        echo $"@@@ copied excludes to $(pwd)" >> "$error_log"
+    else
+        exit 0
+    fi
+fi
+
+
+# These set the default setting in the options window,
+# based on setting in config file. Simple Install does
+# what config file says.
+if [[ $run_preinstall = "yes" ]] ; then
+	var15="TRUE"
+else
+	var15="FALSE"
+fi
+if [[ $run_postinstall = "yes" ]] ; then
+	var16="TRUE"
+else
+	var16="FALSE"
+fi
+
+pre_install_list=$(ls -m /usr/lib/refractainstaller/pre-install)
+post_install_list=$(ls -m /usr/lib/refractainstaller/post-install)
+
+# Check for swap partition and set default option accordingly.
+if [[ $(blkid -c /dev/null | grep swap) ]] ; then
+	var3="TRUE"
+else
+	var3="FALSE"
+fi
+
+
+# Select expert installation options
+if [[ $install = "expert" ]]; then
+    opts=$(yad --list --title=$"Installation Options" --center \
+     --text=$"Check the options you want for the installation.\n
+If you don't understand an option, you probably don't need it.\n" \
+     --checklist --column $"Choose" --column "":HD --column $"Option" \
+     --width=590 --height=555 --button=$"OK":0 --button=$"Exit":1\
+  FALSE 01 $"Create a separate /home partition" \
+  FALSE 02 $"Create a separate /boot partition" \
+  $var3 03 $"Use existing swap partition instead of swapfile." \
+  FALSE 04 $"Encrypt the root filesystem (separate /boot required)" \
+  FALSE 05 $"Encrypt the /home partition (separate /home required)" \
+  FALSE 06 $"Write random data to encrypted partitions (more secure)" \
+  FALSE 07 $"Write zeroes to all partitions (to erase previous data)" \
+  FALSE 08 $"Do not install bootloader. I'll handle it myself." \
+  FALSE 09 $"Do not format filesystems. I'll handle it myself." \
+  TRUE 10 $"Use UUID in /etc/fstab. (Useful if drive order changes.)" \
+  FALSE 11 $"Use filesystem labels (disk labels) in /etc/fstab." \
+  TRUE 12 $"Disable automatic login to desktop." \
+  TRUE 13 $"Disable automatic login to console. (sysvinit only)" \
+  FALSE 14 $"Move selected directories to separate partitions." \
+  $var15 15 $"Run pre-install scripts (listed below)
+$pre_install_list" \
+  $var16 16 $"Run post-install scripts (listed below)
+$post_install_list")
+
+
+else
+# simple defaults
+use_uuid="yes"
+disable_auto_desktop="yes"
+disable_auto_console="yes"
+
+fi
+	if [[ $? = 1 ]] ; then
+		exit 0
+	fi
+
+if $(echo $opts | grep -q 01); then
+    sep_home="yes"
+fi
+if $(echo $opts | grep -q 02); then
+    sep_boot="yes"
+fi
+if $(echo $opts | grep -q 03); then
+    use_existing_swap="yes"
+fi
+if $(echo $opts | grep -q 04); then
+    encrypt_os="yes"
+fi
+if $(echo $opts | grep -q 05); then
+    encrypt_home="yes"
+fi
+if $(echo $opts | grep -q 06); then
+    write_random="yes"
+fi
+if $(echo $opts | grep -q 07); then
+    write_zero="yes"               
+fi
+if $(echo $opts | grep -q 08); then
+    bootloader="no"
+else
+    bootloader="yes"
+fi
+if $(echo $opts | grep -q 09); then
+	if [[ $encrypt_os = "yes" ]] || [[ $encrypt_home = "yes" ]]; then
+		no_format=""
+	else
+		no_format="yes"
+	fi
+fi
+if $(echo $opts | grep -q 10) || [ "$use_uuid" = "yes" ]; then
+	if [[ $encrypt_os = "yes" ]] || [[ $encrypt_home = "yes" ]]; then
+		uuid_message=$"--> UUIDs in fstab won't work with encrypted filesystems and
+ will not be used. Edit fstab manually after the installation."
+
+	else
+		use_uuid="yes"
+	fi
+fi
+if $(echo $opts |grep -q 11) || [ "$use_labels" = "yes" ]; then
+	if [[ $encrypt_os = "yes" ]] || [[ $encrypt_home = "yes" ]]; then
+		disklabel_message=$"--> Disk labels in fstab won't work with encrypted filesystems and
+ will not be used. Edit fstab manually after the installation."
+	else
+		use_uuid="no"
+		use_labels="yes"
+	fi
+fi
+   
+if $(echo $opts | grep -q 12); then
+	disable_auto_desktop="yes"
+fi
+if $(echo $opts | grep -q 13); then
+	disable_auto_console="yes"
+fi
+if $(echo $opts | grep -q 14); then
+	if ! [[ -h /usr/lib/refractainstaller/post-install/move-dir-mount-gui.sh ]] ; then
+		ln -s /usr/lib/refractainstaller/move-dir-mount-gui.sh /usr/lib/refractainstaller/post-install/move-dir-mount-gui.sh
+	fi
+	separate_partition_message=$"At the end of the installation, you will be given a chance to move selected directories to separate partitions."
+else
+	if [[ -h /usr/lib/refractainstaller/post-install/move-dir-mount-gui.sh ]] ; then
+		rm /usr/lib/refractainstaller/post-install/move-dir-mount-gui.sh
+	fi
+fi
+if $(echo $opts | grep -q 15); then
+	run_preinstall="yes"
+elif [[ $install = "simple" ]]; then
+	run_preinstall="yes"
+else
+	run_preinstall="no"
+fi
+if $(echo $opts | grep -q 16); then
+	run_postinstall="yes"
+elif [[ $install = "simple" ]]; then
+	run_postinstall="yes"
+else
+	run_postinstall="no"
+fi
+
+
+if [[ $encrypt_os = "yes" ]] || [[ $encrypt_home = "yes" ]]; then
+    # test for cryptsetup
+    if ! [[ -f /sbin/cryptsetup ]] ; then
+        yad --title=$"Error" --window-icon=error --center \
+         --button=$"Proceed without encrypting partitions":0 \
+         --button=$"Exit":1 --text=$"You need to install cryptsetup and run the command, 'sudo modprobe dm-mod' before you can use encryption."
+        if [[ $? = 0 ]] ;  then
+            encrypt_os="no"
+            encrypt_home="no"
+        else
+            exit 1
+        fi
+    fi
+    # end test for cryptsetup
+fi    
+
+
+## Partition a disk ##### Simple install now does get to partition the disk - uncomment the conditional below to change it back.
+#if [[ $install = "expert" ]]; then
+yad --title=$"Partitioning" --button=$"Run GParted":0 --button=$"Run cfdisk":1 \
+    --width=650 --button=$"Skip this step":2 --button=$"Exit":3 --center \
+    --text=$"  You need to have at least one partition ready for the installation, plus one for each separate  
+  partition that you chose. If you already have the partition(s) ready, you can skip this step.
+
+  Run the partitioner now?"
+	
+	ans="$?"
+	case $ans in
+		0) 	gparted ;;
+		1)  xterm -T "Close this terminal after partioning" -fa mono -fs 12 -geometry 90x25+0+0 -hold -e cfdisk ;;
+		2)  ;;
+		3) exit 0 ;;
+	esac
+#fi
+
+#    # test to make sure there's a separate /boot partition
+if [[ $sep_boot = "no" ]]; then
+    if [[ $encrypt_os = "yes" ]]; then
+        yad --window-icon=error --title=$"Error" --center \
+         --button=$"Proceed without encrypting partition":0 \
+         --button=$"Exit":1 --text=$"You MUST have a separate, unencrypted /boot partition if you intend to boot an encrypted operating system. You can proceed without encrypting the root filesystem, or you can exit and start over."
+        if [[ $? = 0 ]] ;  then
+            encrypt_os="no"
+        else
+            exit 1
+        fi
+    fi
+fi
+
+
+# Find hard drives, and choose one for grub
+choose_grub () {
+yad --title=$"Install GRUB bootloader" --center --text=$"  Choose a location to install the GRUB bootloader. The usual choice is to  
+  put it in the master boot record of the first hard drive (/dev/sda).  
+
+		Choose MBR to install to the mbr of any hard disk. 
+		Choose Partition to install to a partition. 
+		Choose No Bootloader to proceed without a bootloader. 
+		Choose Exit to exit this program.
+		" \
+--button=$"MBR":0 --button=$"Partition":1 --button=$"No Bootloader":2 --button=$"Exit":3
+answer="$?"
+
+if [[ $answer = 0 ]] ; then
+grub_dev=$(find /dev -mindepth 1 -maxdepth 1  | egrep "*[sh]d[a-z]$|*nvme[0-9]n[0-9]$|*mmcblk[0-9]$" \
+  | sort | awk '{print "\n" $0 }' \
+  | yad --list --separator="" --title=$"Bootloader" --center --text=$"Choose a location to install the bootloader.
+" \
+  --column ' ' --column 'Hard Drives' --height=200)
+
+	if [[ -z $grub_dev ]] ; then
+		yad --title=$"Error" --window-icon=error --center --button=$"Yes, I'm sure.":0 --button=$"Go back":1 \
+	--text=$"No bootloader will be installed. Are you sure you want this?"
+			if [[ $? = 1 ]] ; then
+				choose_grub
+			fi
+	elif ! [[ -b $grub_dev ]] ; then
+		yad --title=$"Error"  --window-icon=error --center --button=$"Exit":0 --button=$"Go back":1 \
+	--text=$"Something is wrong.  $grub_dev is not a block device."
+			if [[ $? = 0 ]] ; then
+				exit 1
+			else
+				choose_grub
+			fi
+	fi
+
+elif [[ $answer = 1 ]] ; then
+grub_partition=$(find /dev -mindepth 1 -maxdepth 1  | egrep  "*[sh]d[a-z][1-99]|*nvme[0-9]n[0-9]p[1-99]|*mmcblk[0-9]p[1-99]" \
+  | sort | awk '{print "\n" $0 }' \
+  | yad --list   --title=$"Bootloader" --center --text=$"Select a partition for the bootloader (GRUB)." \
+  --separator="" --column ' ' --column $'Partitions' --height=380 --width=150)
+
+	if [[ -z $grub_partition ]] ; then
+		yad --title=$"Error" --window-icon=error --center --button=$"Yes, I'm sure.":0 --button=$"Go back":1 \
+	--text=$"No bootloader will be installed. Are you sure you want this?"
+			if [[ $? = 1 ]] ; then
+				choose_grub
+			fi
+	elif ! [[ -b $grub_partition ]] ; then
+		yad --title=$"Error"  --window-icon=error --center --button=$"Exit":0 --button=$"Go back":1 \
+	--text=$"Something is wrong.  $grub_partition is not a block device."
+			if [[ $? = 0 ]] ; then
+				exit 1
+			else
+				choose_grub
+			fi
+	fi
+
+
+elif [[ $answer = 2 ]] ; then
+	yad  --title=$"Bootloader" ---center -text=$"  Proceeding without a bootloader. 
+  You will need to do special things to boot your operating system. Be sure  
+  that you know what you're doing." \
+	--button=$"Proceed":0 --button=$"Exit":1
+		if [[ $? = 1 ]] ; then
+			exit 0
+		fi
+elif [[ $answer = 3 ]] ; then
+	exit 0
+fi
+}
+
+### Simple install gets default grub bootloader in /dev/sda
+if [[ $install = "expert" ]]; then
+	if [[ $bootloader = "yes" ]]; then
+		choose_grub
+	fi
+fi
+
+if [[ $install = "simple" ]]; then
+    grub_dev="/dev/sda"
+fi
+
+
+# Show output of blkid for reference.
+#xterm  -fa mono -fs 12 -geometry 90x20+0+0 -hold -e 'echo "Partition list (for reference.)  You may need this later." && blkid -c /dev/null' &
+blkid -c /dev/null | yad --text-info --title=$"Partition List" --text=$"Partition list (for reference.)  You may need this later." \
+--width 820 --height 400 --button=$"Close window":0 &
+sleep 2
+
+# Show the partition list in a menu, and choose one for /boot
+choose_boot () {
+boot_dev=$(find /dev -mindepth 1 -maxdepth 1  | egrep  "*[sh]d[a-z][1-99]|*nvme[0-9]n[0-9]p[1-99]|*mmcblk[0-9]p[1-99]" \
+  | sort | awk '{print "\n" $0 }' \
+  | yad --list   --title=$"/boot partition" --center --text=$"Select a partition for /boot." \
+  --separator="" --column ' ' --column $'Partitions' --height=380 --width=150 --button=$"OK":0)
+}
+
+if [[ $sep_boot = "yes" ]]; then
+    choose_boot
+fi
+
+# Choose filesystem type for /boot
+choose_fs_boot () {
+if [[ -n $boot_dev ]]; then
+     fs_type_boot=$(yad --list --title=$"/boot filesystem" --center --text=$"What type of filesystem would you like on $boot_dev?" \
+  --separator="" --column $"Format" --height=200 --button=$"OK":0 \
+  "ext4" \
+  "ext3" \
+  "ext2")
+fi
+
+if [[ -z $fs_type_boot ]]; then
+    yad --window-icon=error --title=$"Error" --center --button=$"Go back":0 --button=$"Exit":1 \
+      --text=$"You must choose a file system type for /boot"
+    if [[ $? = 0 ]]; then
+        choose_fs_boot
+    else
+        exit 1
+    fi
+fi
+}
+
+if [[ -n $boot_dev ]]; then
+	if [[ $no_format = "yes" ]]; then 
+		fs_type_boot=$(blkid -s TYPE "$boot_dev" | awk -F"\"" '{ print $2 }')
+	else
+		choose_fs_boot
+	fi
+fi
+
+
+# Show the partition list in a menu, and choose one for the OS
+choose_root () {
+install_dev=$(find /dev -mindepth 1 -maxdepth 1  | egrep  "*[sh]d[a-z][1-99]|*nvme[0-9]n[0-9]p[1-99]|*mmcblk[0-9]p[1-99]" \
+  | sort | awk '{print "\n" $0 }' \
+  | yad --list --title=$"Root Partition" --center --text=$"Choose a partition to use for the installation of the operating system." \
+    --separator="" --column ' ' --column $'Partitions' --height 380 --width 150 --button=$"OK":0)
+
+if [[ -z $install_dev ]] ; then
+    yad --window-icon=error --title=$"Error" --center --button=$"Go back":0 --button=$"Exit":1 \
+  --text=$"Nothing was selected. You must select a partition for the installation. What would you like to do?"
+        if [[ $? = 0 ]] ; then
+            choose_root
+        else
+            exit 1
+        fi
+elif ! [[ -b $install_dev ]] ; then
+    yad --window-icon=error --title=$"Error" --center --button=$"Go back":0 --button=$"Exit":1 \
+  --text=$"    Something is wrong. Maybe you checked
+    more than one box. You said you want to install
+    the system to $install_dev"
+        if [[ $? = 0 ]] ; then
+            choose_root
+        else
+            exit 1
+        fi
+elif
+    [[ $install_dev = $boot_dev ]] ; then
+    yad --window-icon=error --title=$"Error" --center --text=$"You chose the same partition for the operating system as the one for /boot. Try again." --button=$"OK":0
+        choose_root
+fi
+}
+
+choose_root
+
+
+# Choose filesystem type for OS.
+choose_fs_os () {
+fs_type_os=$(yad --list --title=$"Root Filesystem" --center --text=$"What type of filesystem would you like on $install_dev?" \
+  --separator="" --column $"Format" --height=200 --button=$"OK":0 \
+  "ext4" \
+  "ext3" \
+  "ext2")
+if [[ -z $fs_type_os ]]; then
+        yad --window-icon=error --title=$"Error" --center --button=$"Go back":0 --button=$"Exit":1 \
+      --text=$"You must choose a file system type
+for the operating system"
+    if [[ $? = 0 ]]; then
+        choose_fs_os
+    else
+        exit 1
+    fi
+fi  
+}
+
+
+### Simple install gets default ext4 filesystem (or ext3 with older grub)
+if [[ $install = "expert" ]]; then
+	if [[ $no_format = "yes" ]]; then 
+		fs_type_os=$(blkid -s TYPE "$install_dev" | awk -F"\"" '{ print $2 }')
+	else
+		choose_fs_os
+	fi
+else
+    if [[ $grubversion = "grub-pc" ]] ; then
+        fs_type_os="ext4"
+    else
+		fs_type_os="ext3"
+	fi
+fi
+
+
+
+# Show the partition list in a menu, and choose one for /home
+choose_home () {
+home_dev=$(find /dev -mindepth 1 -maxdepth 1  | egrep  "*[sh]d[a-z][1-99]|*nvme[0-9]n[0-9]p[1-99]|*mmcblk[0-9]p[1-99]" \
+  | sort | awk '{print "\n" $0 }' \
+  | yad --list --title=$"/home partition" --center --text=$"Select a partition for /home" \
+  --separator="" --column ' ' --column $'Partitions' --height=380 --width=150 --button=$"OK":0)
+if [[ -n $home_dev ]] ; then
+    if ! [[ -b $home_dev ]] ; then
+        yad --info --title="Error" --center --button=$"Go back":0 --button=$"Exit":1 \
+        --text=$"    Something is wrong. 
+    $home_dev is not a block device. "
+        if [[ $? = 0 ]] ; then
+            choose_home
+        else
+            exit 1
+        fi
+    elif
+        [[ $install_dev = $home_dev ]] ; then
+        yad --window-icon=error --title=$"Error" --center --text=$"You chose the same partition for /home as the one for the operating system. If you don't want a separate /home partition, then click OK without selecting one." \
+         --button=$"Go back":0 --button=$"Exit":1
+        if [[ $? = 0 ]] ; then
+            choose_home
+        else
+            exit 1
+        fi
+    elif
+        [[ $boot_dev = $home_dev ]] ; then
+        yad --window-icon=error --title=$"Error" --center --text=$"You chose the same partition for /home as the one for /boot. Try again." \
+         --button=$"Go back":0 --button=$"Exit":1
+        if [[ $? = 0 ]] ; then
+            choose_home
+        else
+            exit 1
+        fi
+    fi
+fi
+}
+
+if [[ $sep_home = "yes" ]]; then
+    choose_home
+fi
+
+
+# Choose filesystem type for /home
+choose_fs_home () {
+if [[ -n $home_dev ]]; then
+     fs_type_home=$(yad --list --title=$"/home filesystem" --center --text=$"What type of filesystem would you like on $home_dev?" \
+  --separator="" --column $"Format" --height=200 --button=$"OK":0 \
+  "ext4" \
+  "ext3" \
+  "ext2")
+fi
+
+if [[ -z $fs_type_home ]]; then
+    yad --window-icon=error --title=$"Error" --center --button=$"Go back":0 --button=$"Exit":1 \
+      --text=$"You must choose a file system type for /home"
+    if [[ $? = 0 ]]; then
+        choose_fs_home
+    else
+        exit 1
+    fi
+fi
+}
+
+if [[ -n $home_dev ]]; then
+	if [[ $no_format = "yes" ]]; then 
+		fs_type_home=$(blkid -s TYPE "$home_dev" | awk -F"\"" '{ print $2 }')
+	else
+		choose_fs_home
+	fi
+fi
+
+
+# Show available swap partitions and choose one.
+choose_swap () {
+swap_info=$(/sbin/blkid |grep swap | awk '{print "\n" $0 }'\
+| yad --list   --title=$"swap partition" --center --text=$"Select a partition for swap." \
+  --separator="" --column ' ' --column $'Partitions' --height=180 --width=600 --button=$"OK":0)
+swap_dev=$(echo $swap_info | awk -F: '{ print $1 }')
+if [[ -z $swap_dev ]] ; then
+	yad --window-icon=error --title=$"Error" --center --text=$"You did not choose a swap partition.
+Click OK to use a swapfile instead.
+Click Cancel to exit the program."
+        if [[ $? = 0 ]] ; then
+            use_existing_swap=""
+        else
+            exit 1
+        fi
+fi
+}
+
+
+if [[ $use_existing_swap = "yes" ]]; then
+    choose_swap
+fi
+
+
+
+
+
+# Show a summary of what will be done
+# if [[ $change_user = "yes" ]]; then
+#     user_message=$"--> User name will be changed."
+# fi
+
+if [[ -n $grub_dev ]] ; then
+    grub_dev_message=$"--> Bootloader will be installed in $grub_dev"
+elif [[ -n $grub_partition ]] ; then
+	grub_dev_message=$"--> Bootloader will be installed in $grub_partition"
+else
+    grub_dev_message=$"--> Bootloader will not be installed."
+fi
+
+if [[ $encrypt_os = yes ]] ; then
+    os_enc_message=$", and will be encrypted."
+fi
+
+if [[ -z $home_dev ]] ; then
+    home_dev_message=$"--> /home will not be on a separate partition."
+elif
+	[[ $no_format = "yes" ]]; then
+		home_dev_message=$"--> /home will be installed on $home_dev"
+else
+    home_dev_message=$"--> /home will be installed on $home_dev and formatted as $fs_type_home"
+fi
+
+if [[ -n $home_dev ]] && [[ $encrypt_home = yes ]] ; then
+    home_enc_message=$", and will be encrypted."
+fi
+
+if [[ -n $boot_dev ]] ; then
+	if [[ $no_format != "yes" ]]; then
+		boot_dev_message=$"--> /boot will be installed on $boot_dev and formatted as $fs_type_boot."
+	else
+		boot_dev_message=$"--> /boot will be installed on $boot_dev"
+	fi
+fi
+
+if [[ $encrypt_os = yes ]] || [[ $encrypt_home = yes ]] ; then
+    proceed_message=$"***  IF YOU PROCEED, YOU WILL NEED TO RESPOND TO SOME QUESTIONS IN THE TERMINAL.   Be prepared to create 
+    passphrases for any encrypted partitions (several times each.) When you see the progress bar come up, you can take a break."
+fi
+
+if [[ $disable_auto_desktop = "yes" ]]; then
+	desktop_message=$"Desktop autologin will be disabled."
+fi
+
+if [[ $disable_auto_console = "yes" ]]; then
+	console_message=$"Console autologin will be disabled."
+fi
+
+if [[ $no_format = "yes" ]]; then
+	install_dev_message=$"--> Operating system will be installed on $install_dev, and you will (or did) format it manually."
+else
+	install_dev_message=$"--> Operating system will be installed on $install_dev and formatted as $fs_type_os$os_enc_message"
+fi
+
+if [[ $run_preinstall = "yes" ]] ; then
+	preinstall_message=$"pre-install scripts are enabled."
+else
+	preinstall_message=$"pre-install scripts are disabled."	
+fi
+if [[ $run_postinstall = "yes" ]] ; then
+	postinstall_message=$"post-install scripts are enabled."
+else
+	postinstall_message=$"post-install scripts are disabled."	
+fi
+
+
+yad --info --title=$"Summary" --center --button=$"Proceed with the installation.":0 --button=$"Exit":1 \
+    --text=$"Please CLOSE any running applications NOW.
+
+Here is a summary of what will be done. THIS IS YOUR LAST CHANCE TO EXIT before any changes are made to the disk.
+
+$grub_dev_message
+$install_dev_message$os_enc_message
+$home_dev_message$home_enc_message
+$boot_dev_message
+$desktop_message
+$console_message
+$uuid_message
+$disklabel_message
+$preinstall_message
+$postinstall_message
+$separate_partition_message
+
+$proceed_message"
+    if [[ $? != 0 ]] ; then
+        exit 0
+    fi
+
+
+# Actual installation begins here
+
+
+# Run pre-install scripts if enabled.
+if [[ $run_preinstall = "yes" ]] ; then
+	for file in /usr/lib/refractainstaller/pre-install/* ; do
+		if [[ -x $file ]] ; then
+			bash $file
+		fi
+	done
+fi
+
+
+# Unmount or close anything that might need unmounting or closing
+cleanup () {
+echo -e $"\n @@@ Cleaning up...\n" >> "$error_log"
+if $(df | grep -q /target/proc/) ; then
+    umount /target/proc/
+fi
+
+if $(df | grep -q /target/dev/) ; then
+    umount /target/dev/
+fi
+
+if $(df | grep -q /target/sys/) ; then
+    umount /target/sys/
+fi
+
+# grep gives an error if $boot_dev is null
+if $(df | grep -q $boot_dev) ; then
+    umount -l $boot_dev
+fi
+
+if $(df | grep -q /target_boot) ; then
+    umount -l /target_boot/
+fi
+
+if $(df | grep -q /target_home) ; then
+    umount -l /target_home/
+fi
+
+# grep gives an error if $home is null
+if $(df | grep -q $home_dev) ; then
+    umount $home_dev
+fi
+
+if $(df | grep -q "\/dev\/mapper\/home_fs") ; then
+    umount /dev/mapper/home_fs
+fi
+
+if [[ -h /dev/mapper/home_fs ]] ; then
+    cryptsetup luksClose home_fs
+fi
+
+if $(df | grep -q /target) ; then
+    umount -l /target/
+fi
+
+if $(df | grep -q $install_dev) ; then
+    umount $install_dev
+fi    
+
+if $(df | grep "\/dev\/mapper\/root_fs") ; then
+    umount /dev/mapper/root_fs
+fi
+
+if [[ -h /dev/mapper/root_fs ]] ; then
+    cryptsetup luksClose /dev/mapper/root_fs
+fi
+
+
+# These next ones might be unnecessary
+if [[ -d /target ]] ; then
+    rm -rf /target
+fi
+
+if [[ -d /target_home ]] ; then
+    rm -rf /target_home
+fi
+
+if [[ -d /target_boot ]] ; then
+    rm -rf /target_boot
+fi
+}
+
+cleanup | tee >(yad --progress --pulsate --width=350 --auto-close --title=$"Cleanup")
+
+
+# Write random data to OS partition
+if [[ $write_random = "yes" ]]; then
+    if [[ $encrypt_os = "yes" ]]; then
+        #xterm -fa mono -fs 12 -geometry 80x20+0+0 -e dd if=/dev/urandom of="$install_dev"
+#       # Redirect stderr so we can see the output of dd
+		exec 2>&1
+        dd if=/dev/urandom of="$install_dev"
+#       # Resume logging errors in file
+        exec 2>>"$error_log"
+    fi  
+fi
+
+# Write random data to /home partition
+if [[ $write_random = "yes" ]]; then
+    if [[ $encrypt_home = "yes" ]]; then
+        #xterm -fa mono -fs 12 -geometry 80x20+0+0 -e dd if=/dev/urandom of="$home_dev"
+#       # Redirect stderr so we can see the output of dd
+		exec 2>&1
+        dd if=/dev/urandom of="$home_dev"
+#       # Resume logging errors in file
+        exec 2>>"$error_log"
+    fi  
+fi
+
+
+# Write zeros to partitions
+if [[ $write_zero = "yes" ]]; then
+    #xterm -fa mono -fs 12 -geometry 80x20+0+0 -e dd if=/dev/zero of="$install_dev"
+    dd if=/dev/zero of="$install_dev"
+    if [[ $sep_home = "yes" ]]; then
+        #xterm -fa mono -fs 12 -geometry 80x20+0+0 -e dd if=/dev/zero of="$home_dev"
+#       # Redirect stderr so we can see the output of dd
+		exec 2>&1
+        dd if=/dev/zero of="$home_dev"
+#       # Resume logging errors in file
+        exec 2>>"$error_log"
+    fi
+    if [[ $sep_boot = "yes" ]]; then
+        #xterm -fa mono -fs 12 -geometry 80x20+0+0 -e dd if=/dev/zero of="$boot_dev"
+#       # Redirect stderr so we can see the output of dd
+		exec 2>&1
+        dd if=/dev/zero of="$boot_dev"
+#       # Resume logging errors in file
+        exec 2>>"$error_log"
+    fi
+fi
+
+
+# make mount point, format, adjust reserve and mount
+# install_dev must maintain the device name for cryptsetup
+# install_part will be either device name or /dev/mapper name as needed.
+mkdir /target ;  check_exit
+
+
+#*****************************************************************************
+
+
+make_luks () {
+exec 2>/dev/null
+	setpass=$(yad --form --field=$"Password:H" --field=$"Retype Password:H" --separator="@_@" \
+	--title=$"Passphrase" --center --image="dialog-password" --button=$"OK":0 --text=$"Enter a passphrase for the encrypted volume: $mapper_name  ")
+
+	if [[ $(echo $setpass  | awk -F"@_@" '{print $1}') != $(echo $setpass | awk -F"@_@" '{print $2}') ]] ; then
+		try_again
+		return
+	else
+		passphr=$(echo $setpass | awk -F"@_@" '{ print $1 }')
+		echo "$passphr" | cryptsetup luksFormat "$luks_dev"
+		echo "$passphr" | cryptsetup luksOpen "$luks_dev" "$mapper_name"
+		 
+	fi
+exec 2>>"$error_log"
+}
+
+
+try_again () {
+yad --image="gtk-dialog-warning" --title $"Error" --center --button=$"Yes":0 --button=$"Exit":1 \
+--text=$"Entries do not match. Do you want to try again?"
+if [[ $? = 0 ]] ; then
+	make_luks
+else
+	cleanup
+	exit 0
+fi
+}
+
+
+if [[ $encrypt_os = yes ]] ; then
+	luks_dev="$install_dev"
+	mapper_name="root_fs"
+	make_luks
+	install_part="/dev/mapper/$mapper_name"
+else
+    install_part="$install_dev"
+fi 
+if [[ $no_format != "yes" ]]; then
+	mke2fs -t $fs_type_os "$install_part" ; check_exit 
+	tune2fs -r 10000 "$install_part" ; check_exit
+fi
+mount "$install_part" /target ; check_exit 
+
+
+# make mount point for separate home if needed
+# and set variable for rsync exclusion.
+if [[ -n $home_dev ]] ; then
+    mkdir /target_home ; check_exit
+    if [[ $encrypt_home = yes ]]; then
+		luks_dev="$home_dev"
+		mapper_name="home_fs"
+		make_luks
+        home_part="/dev/mapper/$mapper_name"
+    else
+        home_part=$home_dev
+	fi
+	if [[ $no_format != "yes" ]]; then
+	    mke2fs -t $fs_type_home "$home_part" ; check_exit
+	    tune2fs -r 10000 "$home_part" ; check_exit
+	fi
+    mount "$home_part" /target_home ; check_exit
+	sep_home_opt="--exclude=/home/*"
+fi
+
+
+
+#*****************************************************************************
+
+
+# make mount point for separate /boot if needed
+# and set variable for rsync exclusion.
+# allow default for reserved blocks (don't need tune2fs here)
+if [[ -n $boot_dev ]] ; then
+    mkdir /target_boot ; check_exit
+    if [[ $no_format != "yes" ]]; then
+		mke2fs -t $fs_type_boot $boot_dev ; check_exit
+	fi
+    mount $boot_dev /target_boot
+    sep_boot_opt="--exclude=/boot/*"
+fi
+
+
+# copy everything over except the things listed in the exclude list
+rsync -av / /target/ --filter='P lost+found' --filter='H lost+found' --exclude-from="$rsync_excludes" ${sep_home_opt} ${sep_boot_opt} --delete-before --delete-excluded | \
+tee >(yad --progress --pulsate --width=350 --auto-close --title=$"Copying system to new partition.")
+
+
+# copy separate /home if needed
+if ! [[ -z $home_dev ]] ; then
+    rsync -av /home/ /target_home/ --filter='P lost+found' --filter='H lost+found' --exclude-from="$home_boot_excludes" | \
+tee >(yad --progress --pulsate --width=350 --auto-close --title=$"Copying home folders to new partition.")
+fi
+
+# copy separate /boot if needed
+if [[ -n $boot_dev ]] ; then
+    rsync -av /boot/ /target_boot/ --filter='P lost+found' --filter='H lost+found' --exclude-from="$home_boot_excludes" | \
+tee >(yad --progress --pulsate --width=350 --auto-close --title=$"Copying files to boot partition.")
+fi
+
+
+# create swapfile
+if ! [[ $use_existing_swap = "yes" ]] ; then
+	dd if=/dev/zero of=/target/swapfile bs="$swapfile_blocksize" count="$swapfile_count" | \
+	tee >(yad --progress --pulsate --width=350 --auto-close --center --title=$"Making a swap file...")
+	mkswap /target/swapfile ; check_exit 
+	chmod 600 /target/swapfile
+fi
+
+
+
+# copy the real update-initramfs back in place ### OBSOLETE???
+#if [[ -f /target/usr/sbin/update-initramfs.distrib ]] ; then
+#    cp /target/usr/sbin/update-initramfs.distrib /target/usr/sbin/update-initramfs
+#fi
+#if [[ -f /target/usr/sbin/update-initramfs.debian ]] ; then
+#    cp /target/usr/sbin/update-initramfs.debian /target/usr/sbin/update-initramfs
+#fi
+
+#*****************************************************************************
+
+
+# Disallow mounting of all fixed drives with pmount
+if [[ -f /target/etc/pmount.allow ]] ; then
+	if [[ $pmount_fixed = "no" ]] ; then
+		sed -i 's:/dev/sd\[a-z\]:#/dev/sd\[a-z\]:' /target/etc/pmount.allow
+	fi
+fi
+
+# Re-enable updatedb if it was disabled by an older version of refractasnapshot
+if [[ -e /target/usr/bin/updatedb.mlocate ]] ; then
+	if ! [[ -x /target/usr/bin/updatedb.mlocate ]] ; then
+		chmod +x /target/usr/bin/updatedb.mlocate
+	fi
+fi
+
+
+# These two functions replace lines 1146-1211
+
+# Disable autologin
+set_noautologin_desktop () {
+
+	#gdm
+    if [[ -f /target/etc/gdm/gdm.conf ]]; then
+        sed -i 's/^AutomaticLogin/#AutomaticLogin/' /target/etc/gdm/gdm.conf
+    fi
+
+	#gdm3
+    if [[ -f /target/etc/gdm3/daemon.conf ]]; then
+        sed -i 's/^AutomaticLogin/#AutomaticLogin/' /target/etc/gdm3/daemon.conf
+    fi
+
+	#lightdm
+	if [[ -f /target/etc/lightdm/lightdm.conf ]]; then
+		sed -i 's/^autologin/#autologin/g' /target/etc/lightdm/lightdm.conf
+	fi
+
+	#kdm
+	if [ -f /target/etc/default/kdm.d/live-autologin ]; then
+		rm -f /target/etc/default/kdm.d/live-autologin
+	fi
+
+	if [ -f /target/etc/kde3/kdm/kdmrc ]; then
+		sed -i -e 's/^AutoLogin/#AutoLogin/g' /target/etc/kde3/kdm/kdmrc \
+			-e 's/^AutoReLogin/#AutoReLogin/g' /target/etc/kde3/kdm/kdmrc
+	fi
+
+	if [ -f /target/etc/kde4/kdm/kdmrc ]; then
+		sed -i -e 's/^AutoLogin/#AutoLogin/g' /target/etc/kde4/kdm/kdmrc \
+			-e 's/^AutoReLogin/#AutoReLogin/g' /target/etc/kde4/kdm/kdmrc
+	fi
+
+	# trinity desktop
+	
+	# v3.5.13
+	if [[ -f /target/etc/default/kdm-trinity.d/live-autologin ]]; then
+		rm -f  /target/etc/default/kdm-trinity.d/live-autologin
+	fi
+	
+	if [ -f /target/etc/trinity/kdm/kdmrc ]; then
+		sed -i -e 's/^AutoLogin/#AutoLogin/g' /target/etc/trinity/kdm/kdmrc \
+			-e 's/^AutoReLogin/#AutoReLogin/g' /target/etc/trinity/kdm/kdmrc
+	fi
+
+	# v3.5.14
+	if [[ -f /target/etc/default/tdm-trinity.d/live-autologin ]]; then
+		rm -f  /target/etc/default/tdm-trinity.d/live-autologin
+	fi
+	
+	if [ -f /target/etc/trinity/tdm/tdmrc ]; then
+		sed -i -e 's/^AutoLogin/#AutoLogin/g' /target/etc/trinity/tdm/tdmrc \
+			-e sed -i -e 's/^AutoReLogin/#AutoReLogin/g' /target/etc/trinity/tdm/tdmrc
+		
+	fi
+
+	#slim
+	if [[ -f /target/etc/slim.conf ]] ; then
+		sed -i -e 's/^[ ]*default_user/#default_user/' \
+			-e 's/^[ ]*auto_login.*$/#auto_login no/' /target/etc/slim.conf
+
+	fi
+	
+	# No display manager
+	if [ -f /target/etc/profile.d/zz-live-config_xinit.sh ]; then
+		rm -f /target/etc/profile.d/zz-live-config_xinit.sh
+	fi
+
+}
+
+
+# Keep autologin and update username in the display manager config.
+set_autologin_desktop () {
+
+	#gdm
+    if [[ -f /target/etc/gdm/gdm.conf ]]; then
+        sed -i "/AutomaticLogin/s/$oldusername/$newusername/" /target/etc/gdm/gdm.conf
+    fi
+
+	#gdm3
+    if [[ -f /target/etc/gdm3/daemon.conf ]]; then
+        sed -i "/AutomaticLogin/s/$oldusername/$newusername/" /target/etc/gdm3/daemon.conf
+    fi
+
+	#lightdm
+	if [[ -f /target/etc/lightdm/lightdm.conf ]]; then
+		sed -i "/autologin/s/=$oldusername/=$newusername/" /target/etc/lightdm/lightdm.conf
+	fi
+
+	#kdm
+	if [ -f /target/etc/default/kdm.d/live-autologin ]; then
+		# This one might not be right.
+		sed -i "s/$oldusername/$newusername/g" /target/etc/default/kdm.d/live-autologin
+	fi
+
+	if [ -f /target/etc/kde3/kdm/kdmrc ]; then
+		sed -i -e "/AutoLogin/s/$oldusername/$newusername/" /target/etc/kde3/kdm/kdmrc \
+			-e "/AutoReLogin/s/$oldusername/$newusername/" /target/etc/kde3/kdm/kdmrc
+	fi
+
+	if [ -f /target/etc/kde4/kdm/kdmrc ]; then
+		sed -i -e "/AutoLogin/s/$oldusername/$newusername/" /target/etc/kde4/kdm/kdmrc \
+			-e "/AutoReLogin/s/$oldusername/$newusername/" /target/etc/kde4/kdm/kdmrc
+	fi
+
+	# trinity desktop
+	
+	# v3.5.13
+	if [[ -f /target/etc/default/kdm-trinity.d/live-autologin ]]; then
+		# This one might not be right.
+		sed -i "s/$oldusername/$newusername/g" /target/etc/default/kdm-trinity.d/live-autologin
+	fi
+	
+	if [ -f /target/etc/trinity/kdm/kdmrc ]; then
+		sed -i -e "/AutoLogin/s/$oldusername/$newusername/" /target/etc/trinity/kdm/kdmrc \
+			-e "/AutoReLogin/s/$oldusername/$newusername/" /target/etc/trinity/kdm/kdmrc	
+	fi
+
+	# v3.5.14
+	if [[ -f /target/etc/default/tdm-trinity.d/live-autologin ]]; then
+		# This one might not be right.
+		sed -i "s/$oldusername/$newusername/g" /target/etc/default/tdm-trinity.d/live-autologin		
+	fi
+	
+	if [ -f /target/etc/trinity/tdm/tdmrc ]; then
+		sed -i -e "/AutoLogin/s/$oldusername/$newusername/" /target/etc/trinity/tdm/tdmrc \
+			-e "/AutoReLogin/s/$oldusername/$newusername/" /target/etc/trinity/tdm/tdmrc		
+	fi
+
+	#slim
+	if [[ -f /target/etc/slim.conf ]] ; then
+		sed -i  -e "/default_user/s/\s\+$oldusername/ $newusername/" /target/etc/slim.conf
+	fi
+	
+	# No display manager
+    # (Nothing to do here.)
+    
+}
+
+
+# setup fstab
+
+# add entry for root filesystem
+if [[ $encrypt_os != "yes" ]]; then
+	if [[ $use_uuid = yes ]]; then
+		install_part="$(blkid -s UUID $install_dev | awk '{ print $2 }' | sed 's/\"//g')"
+	elif [[ $use_labels = yes ]]; then
+			rootfslabel=$(/sbin/blkid -c /dev/null -s LABEL $install_dev | awk -F"\"" '{ print $2 }')
+			if [[ -n $rootfslabel ]]; then
+				install_part="LABEL=$rootfslabel"
+			else
+				rootfslabel=$(yad  --entry --title=$"Filesystem Label"  --center --text=$"Enter a disk label for $install_dev" --width=300 --button=$"OK":0)
+				if [[ -n $rootfslabel ]]; then
+					e2label "$install_dev"  "$rootfslabel"
+					install_part="LABEL=$rootfslabel"
+				else
+					install_part="$install_dev"
+				fi
+			fi
+	else
+		install_part="$install_dev"
+	fi
+fi
+echo -e "$install_part\t/\t$fs_type_os\tdefaults,noatime\t0\t1" > /target/etc/fstab
+check_exit
+
+
+# add entry for /home to fstab if needed
+if ! [[ -z $home_dev ]] ; then
+	if [[ $encrypt_os != "yes" ]]; then
+		if [[ $use_uuid = yes ]]; then
+			home_part="$(blkid -s UUID $home_dev | awk '{ print $2 }' | sed 's/\"//g')"
+		elif [[ $use_labels = yes ]]; then
+				homefslabel=$(/sbin/blkid -c /dev/null -s LABEL $home_dev | awk -F"\"" '{ print $2 }')
+				if [[ -n $homefslabel ]]; then
+					home_part="LABEL=$homefslabel"
+				else
+					homefslabel=$(yad  --entry --title=$"Filesystem Label"  --center --text=$"Enter a disk label for $home_dev" --width=300 --button=$"OK":0)
+					if [[ -n $homefslabel ]]; then
+						e2label "$home_dev"  "$homefslabel"
+						home_part="LABEL=$homefslabel"
+					else
+						home_part="$home_dev"
+					fi
+				fi
+		else
+			home_part="$home_dev"
+		fi
+	fi
+    echo -e "$home_part\t/home\t$fs_type_home\tdefaults,noatime\t0\t2" >> /target/etc/fstab
+    check_exit
+fi
+
+# add entry for /boot to fstab if needed
+if [[ -n $boot_dev ]] ; then
+	if [[ $use_uuid = yes ]]; then
+		boot_part="$(blkid -s UUID $boot_dev | awk '{ print $2 }' | sed 's/\"//g')"
+	elif [[ $use_labels = yes ]]; then
+			bootfslabel=$(/sbin/blkid -c /dev/null -s LABEL $boot_dev | awk -F"\"" '{ print $2 }')
+			if [[ -n $bootfslabel ]]; then
+				boot_part="LABEL=$bootfslabel"
+			else
+				bootfslabel=$(yad  --entry --title=$"Filesystem Label"  --center --text=$"Enter a disk label for $boot_dev" --width=300 --button=$"OK":0)
+				if [[ -n $bootfslabel ]]; then
+					e2label "$boot_dev"  "$bootfslabel"
+					boot_part="LABEL=$bootfslabel"
+				else
+					boot_part="$boot_dev"
+				fi
+			fi
+	else
+		boot_part="$boot_dev"
+	fi
+    echo -e "$boot_part\t/boot\t$fs_type_boot\tdefaults,noatime,\t0\t2" >> /target/etc/fstab
+    check_exit
+fi
+
+
+# add entry for swap to fstab if needed
+if [[ $use_existing_swap = "yes" ]] ; then
+	if [[ $use_uuid = yes ]]; then
+		swap_part="$(/sbin/blkid -s UUID $swap_dev | awk '{ print $2 }' | sed 's/\"//g')"
+	else
+		swap_part="$swap_dev"
+	fi
+    echo -e $"\n Adding swap entry to fstab...\n"
+    echo -e "$swap_part\tswap\tswap\tdefaults\t0\t0" >> /target/etc/fstab
+else
+	echo -e "/swapfile\tswap\tswap\tdefaults\t0\t0" >> /target/etc/fstab
+fi
+
+
+# Add entry for root filesystem to crypttab if needed
+if [[ $encrypt_os = yes ]] ; then
+    echo -e "root_fs\t\t$install_dev\t\tnone\t\tluks" >> /target/etc/crypttab
+fi
+
+
+# Add entry for /home to crypttab if needed
+if [[ $encrypt_home = yes ]] ; then
+    echo -e "home_fs\t\t$home_dev\t\tnone\t\tluks" >> /target/etc/crypttab
+fi
+
+
+# mount stuff so grub will behave (so chroot will work)
+mount --bind /dev/ /target/dev/ ; check_exit 
+mount --bind /proc/ /target/proc/ ; check_exit 
+mount --bind /sys/ /target/sys/ ; check_exit 
+
+
+# Allow users to login to ssh with passwords if desired.
+# Allow root login only with auth keys.
+# or do nothing.
+if [[ $ssh_pass = "yes" ]] ; then
+	sed -i~ 's/PasswordAuthentication no/PasswordAuthentication yes/' /target/etc/ssh/sshd_config
+	sed -i 's/PermitRootLogin yes/PermitRootLogin without-password/' /target/etc/ssh/sshd_config
+elif [[ $ssh_pass = "no" ]] ; then
+	sed -i~ 's/ PasswordAuthentication yes/PasswordAuthentication no/' /target/etc/ssh/sshd_config
+	sed -i 's/PermitRootLogin yes/PermitRootLogin without-password/' /target/etc/ssh/sshd_config
+elif [[ -n "$ssh_pass" ]] ; then	
+	echo $"WARNING: ssh_pass value not recognized. No changes were made to /etc/ssh/sshd_config"
+fi
+
+
+install_grub () {
+# Setup GRUB 
+echo $"Setting up grub bootloader.. Please wait.."
+
+# If /boot is separate partition, need to mount it in chroot for grub
+if [[ -n $boot_dev ]] ; then
+    chroot /target mount $boot_dev /boot
+fi
+
+
+# If grub is installed to a partition, we need to know if it's grub-pc
+# or grub-legacy/grub-gfx to handle it properly.
+if [[ -n $grub_partition ]] ; then
+	if [[ $grubversion != "grub-pc" ]] ; then
+
+		# isolate the device (sdx) letter then use tr like this to translate to the right number for grub
+		GRUBDEVICENUM=$(echo $grub_partition |sed 's:/dev/sd::' |sed 's:[0-9]::'g |tr '[a-j]' '[0-9]')
+
+		# isolate the partition number
+		INSTALLPARTNUM=$(echo $grub_partition |sed 's:/dev/sd::'|sed 's:[a-z]::')
+
+		# and reduce it by 1 for grub
+		GRUBPARTNUM=$(expr $INSTALLPARTNUM - 1)
+
+		# finally get the finished grub root syntax
+		GRUBROOT="(hd$GRUBDEVICENUM,$GRUBPARTNUM)"
+
+
+		chroot /target grub-install $grub_partition
+		grub --batch <<EOF
+		root $GRUBROOT
+		setup $GRUBROOT
+		quit
+EOF
+
+	else
+		error_message=$"grub-install failed."
+		chroot /target grub-install --recheck --no-floppy --force $grub_partition >> "$error_log" ; check_exit
+	fi
+fi
+
+
+if [[ -n $grub_dev ]]; then
+    echo -e $"\n Installing GRUB boot loader...\n" >> "$error_log"
+    error_message=$"grub-install failed."
+    chroot /target grub-install $grub_dev >> "$error_log" ; check_exit
+fi
+
+error_message=""
+}
+
+if [[ -n "$grub_dev" ]] ; then
+	install_grub | tee >(yad --title=$"Installing GRUB bootloader..." --progress --pulsate --auto-close --width 300)
+fi
+
+#******************************************************************
+
+# Run update-initramfs to include dm-mod if using encryption
+if [[ $encrypt_os = yes ]] || [[ $encrypt_home = yes ]] ; then
+	if [[ -f /usr/sbin/update-initramfs.orig.initramfs-tools ]] ; then
+		chroot /target /usr/sbin/update-initramfs.orig.initramfs-tools -u >> "$error_log"
+	else
+		chroot /target /usr/sbin/update-initramfs -u >> "$error_log"
+	fi
+fi
+
+
+#******************************************************************
+
+
+
+if [[ -n $grub_dev ]] || [[ -n $grub_partition ]] ; then
+    chroot /target update-grub ; check_exit 
+fi
+
+if [ -f /target/boot/grub/setup_left_core_image_in_filesystem ]; then
+rm -f /target/boot/grub/setup_left_core_image_in_filesystem
+fi
+
+# INSTALLATION FINISHED - BEGIN CONFIGURE USERNAME, HOSTNAME, PASSWORDS, SUDO
+
+
+# Need to mount the target home partition under the target root partition
+# so the commands can find it (for changing user configs gksu)
+if [[ $sep_home = "yes" ]]; then
+    mount $home_part /target/home
+fi
+
+
+# it might not be on in some live builds
+chroot /target /bin/bash -c "shadowconfig on"
+
+oldname=$(awk -F: '/1000:1000/ { print $1 }' /target/etc/passwd)
+old_realname=$(cat /target/etc/passwd |grep "^$oldname"|sed "s/,,,//"|awk -F ":" '{print $5}')
+
+username_dialog() {
+
+	newuser=$(yad --form --title=$"Configure hostname and username..." --center --button=$"OK":0 \
+	--text=$"\n You should change the hostname and username \n \
+	(optional but recommended) \n" \
+	--field=$"New hostname \(no spaces\):" \
+	--field=$"New username \(no spaces\):" \
+	--field=$"New user's 'real name' \(e.g. John Smith\):" \
+	--field=$"Permit sudo for new user\?":CHK \
+	--field=$"Use sudo as default for new user\?":CHK \
+	--field=$"Use sudo only for shutdown\?":CHK \
+	"$HOSTNAME" "$oldname" "$old_realname" FALSE FALSE TRUE)
+
+	new_hostname=$(echo $newuser |awk -F "|" '{print $1}')
+	newname=$(echo $newuser |awk -F "|" '{print $2}')
+	new_realname=$(echo $newuser |awk -F "|" '{print $3}')
+	sudoconfig=$(echo $newuser |awk -F "|" '{print $4}')
+	sudo_is_default=$(echo $newuser |awk -F "|" '{print $5}')
+	sudo_shutdown=$(echo $newuser |awk -F "|" '{print $6}')
+}
+
+username_dialog
+
+
+
+# Test to make sure new_hostname is a legal hostname, let user fix it if it's not.
+fix_hostname () {
+	new_hostname=$(yad --entry --title=$"Change hostname" --center \
+	--text=$"Illegal hostname. Try again.
+	
+You can use alphanumeric characters anywhere in the hostname, and 
+you can use the minus sign (-) as long as it's not at the beginning or end." \
+	--entry-text=$"$HOSTNAME" --width=500 --button=$"OK":0)
+	test_hostname	
+}
+
+
+test_hostname () {
+   if [[ $new_hostname =~ "$"|"%"|"("|")"|"*"|"_"|"@"|"~"|"!"|"#"|"="|"+"|"&"|"^"|":"|";"|"'"|","|"."|"<"|">"|"?"|"{"|"}"|"["|"]"|"/"|"|"|" " ]]; then
+      fix_hostname
+   elif [[ $new_hostname =~ "\""|"\`" ]];then
+      fix_hostname
+   elif [[ $new_hostname = -* ]] || [[ $new_hostname = *- ]]; then
+      fix_hostname
+   elif [[ -z $new_hostname ]]; then
+      new_hostname="$HOSTNAME"
+   fi
+}
+
+
+# do hostname
+if [[ $new_hostname != $HOSTNAME ]]; then
+	test_hostname
+	sed -i "s/$HOSTNAME/$new_hostname/" /target/etc/hostname
+	sed -i "s/$HOSTNAME/$new_hostname/g" /target/etc/hosts
+fi
+
+# do username
+if [ -z "$newname" ]; then
+newname=$oldname
+fi
+
+if [ "$oldname" != "$newname" ]; then
+
+	chroot /target usermod -l $newname $oldname ; check_exit
+	chroot /target groupmod -n $newname $oldname ; check_exit
+	chroot /target usermod -d /home/$newname -m $newname ; check_exit
+
+	for i in $(grep -r "/home/$oldname" /target/home/$newname/.config | awk -F":" '{ print $1 }'); do
+	sed -i "s/\/home\/$oldname/\/home\/$newname/g" "$i"
+	done
+
+	for i in $(grep -r "/home/$oldname" /target/home/$newname/.local | awk -F":" '{ print $1 }'); do
+	sed -i "s/\/home\/$oldname/\/home\/$newname/g" "$i"
+	done
+fi
+
+#sed -i~ "s/$old_realname,,,/$new_realname,,,/" /target/etc/passwd
+chroot /target /bin/bash -c "chfn -f '$new_realname' $newname"
+
+
+## sort sudo ##
+
+# =>wheezy live-config now uses /etc/sudoers.d
+if [ -e /target/etc/sudoers.d/live ]; then
+rm -f /target/etc/sudoers.d/live
+fi
+
+oldusername=$(awk -F: '/1000:1000/ { print $1 }' /etc/passwd)
+newusername=$(awk -F: '/1000:1000/ { print $1 }' /target/etc/passwd)
+
+# squeeze (or other distro) might have used /etc/sudoers
+if grep -qs $oldusername /target/etc/sudoers ; then
+sed -i "/$oldusername/d" /target/etc/sudoers
+fi
+
+if [ "$sudoconfig" = "TRUE" ] || [ "$sudo_is_default" = "TRUE" ]; then
+	# $newusername is permitted to use sudo so add him to sudo group
+	chroot /target usermod -a -G sudo $newusername
+
+		# it shoud be already there in =>wheezy.. in case it's not: 
+		if ! grep -qs "^%sudo" /target/etc/sudoers ; then 
+			echo "%sudo ALL=(ALL:ALL) ALL" >> /etc/sudoers
+		fi
+fi
+
+if [ "$sudo_is_default" != "TRUE" ]; then
+
+	# files that may have been written by live-config to force live sudo mode
+
+	# should they just be deleted?
+
+	# rm -f /target/home/*/.gconf/apps/gksu/%gconf.xml
+	# rm -f /target/home/*/.*/share/config/*desurc
+
+	# fix gksu in user's home ($newusername will not use sudo by default)
+	if [ -f /target/home/"$newusername"/.gconf/apps/gksu/%gconf.xml ]; then
+	sed -i '/sudo-mode/s/true/false/' /target/home/"$newusername"/.gconf/apps/gksu/%gconf.xml
+	fi
+
+	sed -i 's/SU_TO_ROOT_SU=sudo/SU_TO_ROOT_SU=su/' /target/home/$newusername/.su-to-rootrc
+	# detects .kde/ .kde4/ .trinity/ (kdesurc or tdesurc)
+	for file in /target/home/$newusername/.*/share/config/*desurc ; do
+	sed -i 's/super-user-command=sudo/super-user-command=su/' $file
+	done
+fi
+
+if [ "$sudo_shutdown" = "TRUE" ]; then
+	sudo_include_file="/target/etc/sudoers.d/user_shutdown"
+	if [ -f "$sudo_include_file" ]; then
+		mv "$sudo_include_file" "${sudo_include_file}.old"
+	fi
+	echo "$newusername ALL= NOPASSWD: /usr/sbin/pm-suspend, /usr/sbin/pm-hibernate, /sbin/halt, /sbin/reboot" > "$sudo_include_file"
+fi
+
+
+if [[ $disable_auto_desktop = "yes" ]]; then
+	set_noautologin_desktop
+	disable_auto_console="yes"
+else
+	set_autologin_desktop
+fi   
+    
+
+# Disable console autologin
+if [[ $disable_auto_console = "yes" ]]; then
+	if grep -q "respawn:/bin/login -f" /target/etc/inittab ; then
+		mv /target/etc/inittab /target/etc/inittab.$(date +%Y%m%d_%H%M)
+		cp /usr/lib/refractainstaller/inittab.debian /target/etc/inittab
+	fi
+else
+	sed -i "/respawn:/s/$oldusername/$newusername/g" /target/etc/inittab
+fi
+
+# live-config also writes directory /home/user/.kde
+# if kde is not installed it should be removed !
+
+
+## passwords ##
+
+clean_log() {
+	
+	# clear the log of plain-text passwords
+	if [ -n "$newpass" ]; then
+		sed -i "s|$newpass|\*\*\*\*|"g $error_log
+	fi
+	
+	if [ -n "$confirm_newpass" ]; then
+		sed -i "s|$confirm_newpass|\*\*\*\*|"g $error_log
+	fi
+	newpass=""
+	confirm_newpass=""
+}
+
+pass_error() {
+	
+	clean_log
+	use_existing=""
+	disable_root=""
+
+	yad --title=$"Configure $pass_dialog password" --center --image="gtk-dialog-error" --width=320 --button=$"OK":0 \
+	--text=$"  Passwords do not match (or checkbox error)  \n\n  Please try again  "
+}
+
+configure_pass() {
+
+clean_log
+
+pass_entry=$(yad --form --title=$"Configure $pass_dialog password" --center --button=$"OK":0 \
+--text=$"You should reset the $pass_dialog password.\n" \
+--field=$"Enter new $pass_dialog password::H" \
+--field=$"Confirm new $pass_dialog password::H"  \
+--field=$"Use current password\? (not recommended)":CHK \
+"$field_four")
+
+# TODO check for illegal characters?
+
+newpass=$(echo $pass_entry|awk -F "|" '{print $1}')
+confirm_newpass=$(echo $pass_entry|awk -F "|" '{print $2}')
+use_existing=$(echo $pass_entry|awk -F "|" '{print $3}')
+disable_root=$(echo $pass_entry|awk -F "|" '{print $4}')
+
+	if [ "$use_existing" = "TRUE" ] && [ "$disable_root" = "TRUE" ] ; then
+	pass_error
+	configure_pass
+	fi
+
+	if [ -n "$newpass" ] && [ "$use_existing" = "TRUE" ]; then
+	pass_error
+	configure_pass
+	fi
+
+	if [ "$use_existing" = "TRUE" ] || [ "$disable_root" = "TRUE" ] ; then
+	return
+	fi
+
+	if [ -z "$newpass" ] || [ "$newpass" != "$confirm_newpass" ]; then
+	pass_error
+	configure_pass
+	fi
+}
+
+# do root password
+set_rootpass() {
+		if [ "$sudo_is_default" = "TRUE" ]; then
+		field_four=$'--field=Disable root account\? \(not recommended\):CHK'
+		fi
+
+	pass_dialog=root
+	configure_pass
+
+		if [ "$disable_root" = "TRUE" ]; then
+			echo $"disabling root account.. "
+
+			# replace second field with "*" in /etc/shadow
+			rootpass_hash=$(cat /target/etc/shadow|grep ^root| awk -F ":" '{print $3 ":" $4 ":" $5 ":" $6}')
+			sed -i "s|^root:.*|root:\*:${rootpass_hash}:::|" /target/etc/shadow
+		else
+			if [ -n "$newpass" ]; then
+				chroot /target /bin/bash -c "echo -e \"$newpass\n$newpass\n\" | passwd root"
+				#else do nothing, keep old password
+			fi
+		fi
+
+	clean_log
+}
+
+# do user password
+set_userpass() {
+
+pass_dialog=user
+field_four=""
+configure_pass
+
+	if [ -n "$newpass" ]; then
+		chroot /target /bin/bash -c "echo -e \"$newpass\n$newpass\n\" | passwd $newusername"
+		# else do nothing, keep old password
+	fi
+
+clean_log
+}
+
+set_rootpass
+set_userpass
+
+# Run any post-install scripts
+if [[ $run_postinstall = "yes" ]] ; then
+	for file in /usr/lib/refractainstaller/post-install/* ; do
+		if [[ -x "$file" ]] ; then
+			bash "$file"
+		fi
+	done
+fi
+
+
+
+yad --image=gtk-dialog-info --title="$window_title" --center --text=$" Installation complete. \n\n You may now reboot into the new system.\n\n Remember to remove your installation media.\n" --width=500 --button=$"OK":0
+
+# copy error log to installation now before calling cleanup function
+cp "$error_log" /target/home/"$newusername"/
+chown 1000:1000 /target/home/"$newusername"/"${error_log##*/}"
+cleanup
+
+exit 0
+

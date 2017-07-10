@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=SMALLER FONTS
+Comment=Decrease desktop font size
+Exec=/usr/local/bin/adjfontsize -
+Icon=preferences-desktop-accessibility-symbolic
+Path=
+Terminal=false
+StartupNotify=false

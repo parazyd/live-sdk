@@ -1,0 +1,161 @@
+DEVUAN-LIVE DESKTOP
+
+
+This is Devuan-Live jessie desktop edition. It contains the same package
+selection as the default desktop in the regular installer isos, with the
+addition of a few packages for the live system, wireless firmware, a 
+live-cd installer and remastering tool to make your own live-CD/DVD image.
+
+You can burn the iso to DVD or use dd to image a USB thumb drive.
+
+User name: devuan		Password: devuan
+Admin name: root		Password: toor 
+
+
+maintained by fsmithred (key id 0xD95DDF2BF71AAAEB on pgp.mit.edu)
+built with the Devuan SDK, live-sdk module
+
+
+Contents
+	1. Set language/locale at boot.
+	2. Wireless (non-free) firmware
+	3. Install to hard drive
+	4. Remastering
+	5. Bug reports and support links.
+
+
+
+BOOT TO ANOTHER LANGUAGE
+
+Choose the "Other language" option from the boot menu.
+Press TAB to edit the boot command.
+Backspace to erase "it_IT.UTF-8"  (Ignore the repeating lines. Bug 
+or misconfigured?)
+Type your locale code in its place and then ENTER.
+Note: When you install the system, your chosen language will be the 
+default in the installed system.
+
+
+
+
+WIRELESS (NON-FREE) FIRMWARE 
+
+To set up wireless networking, use wicd network manager or run setnet.sh
+from a root terminal (or with sudo).
+
+Wireless firmware is already installed. Most of the firmware packages 
+come from the non-free repository, however the non-free and contrib 
+repositories are not enabled. If you want to install packages from 
+non-free or contrib, you need to edit /etc/apt/sources.list or add them 
+through Synaptic Package Manager in the System menu.
+
+You can remove all the non-free firmware after you reboot into the new 
+installation by running (as root or with sudo):
+	remove-non-free-firmware
+
+If you need to reinstall a firmware package, they are located in /firmware
+and can be installed with:
+
+    dpkg -i <package-name>
+
+    
+Here is the full list of non-free packages installed:
+
+b43-fwcutter firmware-atheros firmware-b43-installer firmware-b43legacy-installer firmware-bnx2 firmware-bnx2x firmware-brcm80211 firmware-intelwimax  firmware-iwlwifi firmware-libertas firmware-linux-nonfree firmware-myricom firmware-netxen firmware-qlogic firmware-ralink firmware-realtek firmware-ti-connectivity firmware-zd1211
+
+
+NOTE: firmware-ipw2x00 requires an end-user agreement and is therefore not installed.
+The deb package can be found in /firmware with the rest of the non-free firmware packages.
+
+
+
+
+INSTALLER
+
+This Devuan live-iso comes with Refracta Installer, which will copy the 
+running system to hard drive and install the GRUB bootloader. Any changes 
+you make to the running system will be copied to the installation. This 
+includes desktop configuration, software added or removed, language/locale 
+settings and other changes in system configuration.
+
+The installer will allow you to create a separate /home partition and/or 
+a separate /boot partition if needed. 
+
+There is no automatic partitioning. You can create the partitions before 
+you start the installer or from within the installer. Gparted, cfdisk and 
+cgdisk are all installed and available. For a legacy bios install, the 
+minimum needed is a single partition for the system. For a uefi install, 
+you must also have an EFI partition. Refer to the uefi installer help 
+document. (See /usr/lib/refractainstaller/uefi_install.readme or 
+press Help from within the uefi installer.)
+
+Note that the uefi installer is still considered experimental. UEFI 
+implementations in motherboards vary in their adherence to standards 
+from one manufacturer to the next. Read the Help in the installer, read 
+the additional links in the help, and be prepared to do some manual fixing 
+of your bootloader. 
+
+That said, you should not be surprised if it all works perfectly.
+
+HP WARNING!!! If your computer was made by Hewlett-Packard and uses UEFI, 
+read these before installing!
+
+	https://dev1galaxy.org/viewtopic.php?id=15
+	http://www.rodsbooks.com/efi-bootloaders/index.html
+
+When you select the installer from the menu or the desktop icon, it will 
+detect if you booted on uefi or bios hardware, and it will start the 
+correct installer script. The bios installer has a choice of Simple or 
+Expert Install. Expert is the recommended choice. If you make no changes 
+in the options window, it's almost identical to the Simple Install.
+
+You can also start the installer from a root terminal (or with sudo):
+	refractainstaller			# Starts the text-only installer. (no uefi support)
+	refractainstaller-yad		# Starts the installer for legacy bios systems.
+	refractainstaller-uefi		# Starts the installer for uefi systems.
+	
+
+
+You can encrypt the filesystem if desired. (root filesystem and /home).
+The installer will use an existing swap partition. If there is no swap 
+partition or if you un-check that option, the installer will create a 
+swapfile in the root of the filesystem. The default size is 256MB, but 
+this can be changed by editing the config file. (/etc/refractainstaller.conf)
+This installer will not let you encrypt a swap partition; use a swapfile 
+on an encrypted partition instead. 
+
+If you want automatic partitioning, LVM or RAID, you must use one of the regular installer isos.
+If you want to install on uefi hardware with an installer that has had more extensive testing, 
+use one of the regular installer isos.
+
+
+
+REMASTERING (Make your own live-CD/DVD/USB)
+
+Run Refracta Snapshot from the applications menu or refractasnapshot-gui 
+in a root terminal for the graphical version.
+Run refractasnapshot from a root terminal for the text-only version. 
+
+The program will copy your installed system and pack it into a bootable 
+iso that can be burned to optical disk or imaged to a usb stick. 
+See /usr/share/doc/refractasnapshot-base/README.gz for details.
+
+
+
+BUG REPORTS AND SUPPORT LINKS
+
+Comments, suggestions, criticisms, and bug reports are welcome.
+Please report bugs on the official Devuan Bug Tracking System:
+
+  http://bugs.devuan.org
+
+Full list of community links can be found at:
+https://devuan.org/os/community
+
+Support:
+IRC Channel on freenode.net: #devuan
+Support forum: dev1galaxy.org
+
+
+
+
