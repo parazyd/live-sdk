@@ -1,29 +1,29 @@
 #!/usr/bin/env zsh
 ## configuration file for devuan-live blend
 
-vars+=(username userpass default_shell mkefi grubversion)
+vars+=(username userpass default_shell mkefi grubversion hookscripts)
 arrs+=(custom_deb_packages)
 
-blend_name="devuan-live"
+blend_name="devuan-live_"
 
 username="devuan"
 userpass="devuan"
 default_shell="/bin/bash"
 
-grubversion="grub-pc"
-image_name="${os}_${release}_${version}_${arch}"
+# comment to disable:
+hookscripts="yes"
 
-case "$4" in
-	uefi)
-		notice "UEFI build enabled"
-		grubversion="grub-efi-${arch}"
-		image_name="${os}_${release}_${version}_${arch}_uefi"
-		mkefi="yes"
-		efi_work="$BLENDPATH/efi-files"
-		;;
-esac
+# uncomment to create uefi-bootable iso
+mkefi="yes"
+efi_work="$BLENDPATH/efi-files"
 
-extra_packages+=(
+#grubversion="grub-pc"
+grubversion="grub-efi-amd64"
+
+section="main contrib non-free"
+image_name="${os}_${release}_${version}_${arch}_uefi_desktop"
+
+base_packages+=(
 	lsof
 	bash-completion
 	texinfo
@@ -40,6 +40,7 @@ extra_packages+=(
 	gnupg2
 	gparted
 	$grubversion
+	iw
 	laptop-detect
 	mlocate
 	mutt
@@ -51,15 +52,39 @@ extra_packages+=(
 	usbutils
 	w3m
 	whois
+)
+
+extra_packages+=(
+
 	task-desktop
 	task-english
 	task-xfce-desktop
 	task-print-server
-	#refractasnapshot-base
-	refractasnapshot-gui
-	#refractainstaller-base
-	refractainstaller-gui
+	popularity-contest
 )
+
+
+extra_packages+=(
+	b43-fwcutter
+	firmware-atheros
+	firmware-b43-installer
+	firmware-b43legacy-installer
+	firmware-bnx2
+	firmware-bnx2x
+	firmware-brcm80211
+	firmware-intelwimax
+	firmware-iwlwifi
+	firmware-libertas
+	firmware-linux-nonfree
+	firmware-myricom
+	firmware-netxen
+	firmware-qlogic
+	firmware-ralink
+	firmware-realtek
+	firmware-ti-connectivity
+	firmware-zd1211
+)
+
 
 purge_packages=(
 	btrfs-tools
@@ -80,6 +105,15 @@ purge_packages=(
 	zsh-common
 )
 
+
+# yad needs to be first
+custom_deb_packages+=(yad_0.27.0-1_${arch}.deb)
+
+
 custom_deb_packages+=(
-	yad_0.27.0-1_${arch}.deb
+	refractainstaller-base_9.2.1_all.deb
+	refractainstaller-gui_9.2.2_all.deb
+	refractasnapshot-base_10.0.2_all.deb
+	refractasnapshot-gui_10.0.2_all.deb
+	setnet_0.3.2-1_all.deb
 )

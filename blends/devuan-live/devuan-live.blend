@@ -1,10 +1,9 @@
 #!/usr/bin/env zsh
 # Copyright (c) 2017 Dyne.org Foundation
 # live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
-# devuan-live blend patches maintained by fsmithred
 #
 # This file is part of live-sdk
-#
+# devuan-live.blend is maintained by fsmithred
 #
 # This source code is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,29 +21,6 @@
 BLENDPATH="${BLENDPATH:-$(dirname $0)}"
 
 source $BLENDPATH/config
-
-conf_print_sourceslist() {
-	fn conf_print_sourceslist "(override)"
-	req=(mirror release section)
-	ckreq || return 1
-
-	cat << EOF
-## package repositories
-deb ${mirror} ${release} ${section}
-deb ${mirror} ${release}-updates ${section}
-deb ${mirror} ${release}-security ${section}
-#deb ${mirror} ${release}-backports ${section}
-deb http://packages.devuan.org/devuan experimental ${section}
-
-## source repositories
-#deb-src ${mirror} ${release} ${section}
-#deb-src ${mirror} ${release}-updates ${section}
-#deb-src ${mirror} ${release}-security ${section}
-#deb-src ${mirror} ${release}-backports ${section}
-#deb-src http://packages.devuan.org/devuan experimental ${section}
-
-EOF
-}
 
 blend_preinst() {
 	fn blend_preinst
@@ -66,12 +42,15 @@ blend_postinst() {
 
 	notice "executing $blend_name postinst"
 
-	[[ -n "$mkefi" ]] && iso_make_efi
+	[[ $mkefi = yes ]] && {
+		iso_make_efi
+		iso_write_grub_cfg
+	}
 
 	install-custdebs || zerr
-	#pushd "$strapdir"
-	#	sudo rsync -avx --no-o --no-g "$BLENDPATH"/rootfs-overlay/* . || zerr
-	#popd
+	pushd "$strapdir"
+		sudo rsync -avx --no-o --no-g "$BLENDPATH"/rootfs-overlay/* . || zerr
+	popd
 
 	blend_finalize || zerr
 }
@@ -95,24 +74,34 @@ menu color sel		* #ffffffff #A1B067 *
 menu color hotsel	1;7;37;40 #ffffffff #A1B067 *
 menu color tabmsg	* #E5FD91 #00000000 *
 menu color cmdline 0 #E5FD91 #00000000
+menu tabmsg Press ENTER to boot or TAB to edit a menu entry
 menu vshift 12
 menu rows 12
 
-label live-${arch}
-	menu label devuan-live (${arch})
+label live
+	menu label ${os}-live (${arch})
 	menu default
 	linux /live/vmlinuz
-	append initrd=/live/initrd boot=live username=${username}
+	append initrd=/live/initrd.img boot=live username=${username}
+
+label lang
+	menu label Other language (TAB to edit)
+	linux /live/vmlinuz
+	append initrd=/live/initrd.img boot=live username=${username} hooks=file:///lib/live/mount/medium/live/hooks/fix-lang.sh locales=it_IT.UTF-8
 
 label toram
-	menu label devuan-live (${arch}) (load to RAM)
+	menu label ${os}-live (${arch}) (load to RAM)
 	linux /live/vmlinuz
-	append initrd=/live/initrd boot=live username=${username} toram
+	append initrd=/live/initrd.img boot=live username=${username} toram
 
 label failsafe
-	menu label devuan-live (${arch}) (failsafe)
-	kernel /live/vmlinuz noapic noapm nodma nomce nolapic nosmp vga=normal
-	append initrd=/live/initrd boot=live
+	menu label ${os}-live (${arch}) (failsafe)
+	kernel /live/vmlinuz noapic noapm nodma nomce nolapic nosmp nomodeset vga=normal
+	append initrd=/live/initrd.img boot=live
+
+label memtest
+	menu label Memory test
+	kernel /live/memtest
 
 endtext
 EOF
@@ -120,24 +109,27 @@ EOF
 	notice "copying isolinux overlay"
 	sudo mkdir -p "$workdir"/binary/{live,isolinux}
 	sudo cp -rav "$BLENDPATH"/isolinux-overlay/* "$workdir"/binary/isolinux/
+	[[ -n "$hookscripts" ]] && {
+		sudo cp -av "$BLENDPATH"/hooks "$workdir"/binary/live/
+	}
 }
 
-## uefi code borrowed and adapted from David Hare, who borrowed and adapted it
-## from similar scripts by Colin Watson and Patrick J. Volkerding.
+# create /boot and /efi for uefi.
+# uefi code borrowed and adapted from David Hare, who borrowed and adapted it
+# from similar scripts by Colin Watson and Patrick J. Volkerding.
 iso_make_efi() {
 	fn iso_make_efi
-	req=(strapdir workdir efi_work)
+	req=(workdir efi_work)
 	ckreq || return 1
-	set -x
+
 	notice "creating efi boot files"
 
-	_tempdir="$(mktemp -d /tmp/work_temp.XXXX)"
+	tempdir="$(mktemp -d /tmp/work_temp.XXXX)"
+	# for initial grub.cfg
+	mkdir -p "$tempdir"/boot/grub
 
-	## for initial grub.cfg
-	mkdir -p "$_tempdir"/boot/grub
 
-
-	cat >"$_tempdir"/boot/grub/grub.cfg <<EOF
+	cat >"$tempdir"/boot/grub/grub.cfg <<EOF
 search --file --set=root /isolinux/isolinux.cfg
 set prefix=(\$root)/boot/grub
 source \$prefix/x86_64-efi/grub.cfg
@@ -146,92 +138,110 @@ EOF
 	mkdir -p "$efi_work"
 	pushd "$efi_work"
 
-	rm -rf boot efi
-	rm -rf efi
-	mkdir -p boot/grub/x86_64-efi
-	mkdir -p efi/boot
+	# start with empty directories.
+	rm -rf boot; mkdir -p boot/grub/x86_64-efi
+	rm -rf efi ; mkdir -p efi/boot
 
-	## efi partition mods
-	find $strapdir/usr/lib/grub/x86_64-efi -type f -name "part_*\.mod" \
-		-exec sh -c 'for f do echo insmod $(basename -- "$f" .mod); done' sh {} + \
-		>> boot/grub/x86_64-efi/grub.cfg
+	# second grub.cfg file
+	for i in $(find $strapdir/usr/lib/grub/x86_64-efi -name 'part_*.mod'); do
+		print "insmod $(basename $i)" >> boot/grub/x86_64-efi/grub.cfg
+	done
 
-	## Additional modules so we don't boot in blind mode.
-	## I don't know which ones are really needed.
-	_efimods=(efi_gop efi_uga ieee1275_fb vbe vga video_bochs
-		video_cirrus jpeg png gfxterm)
-
-	for i in $_efimods; do
+	# Additional modules so we don't boot in blind mode.
+	# I don't know which ones are really needed.
+	efimods=(
+		efi_gop
+		efi_uga
+		ieee1275_fb
+		vbe
+		vga
+		video_bochs
+		video_cirrus
+		jpeg
+		png
+		gfxterm
+	)
+	for i in $efimods; do
 		print "insmod $i" >> boot/grub/x86_64-efi/grub.cfg
 	done
+
 	print "source /boot/grub/grub.cfg" >> boot/grub/x86_64-efi/grub.cfg
 
-	pushd "$_tempdir"
-		## make a tarred "memdisk" to embed in the grub image
+	pushd "$tempdir"
+		# make a tarred "memdisk" to embed in the grub image
 		tar -cvf memdisk boot
 
-		## make the grub image
-		_grubmods=(search iso9660 configfile normal memdisk tar cat part_msdos
-			part_gpt fat ext2 ntfs ntfscomp hfsplus chain boot linux)
-		grub-mkimage \
-			-O "x86_64-efi" \
-			-m "memdisk" \
-			-o "bootx64.efi" \
-			-p '(memdisk)/boot/grub' \
-			$_grubmods
+		# make the grub image
+		cat <<EOF | sudo tee ${strapdir}/grubmkimage
+#!/bin/sh
+grub-mkimage -O "x86_64-efi" -m "memdisk" -o "bootx64.efi" \
+	-p '(memdisk)/boot/grub' \
+		search iso9660 configfile normal memdisk tar cat \
+		part_msdos part_gpt fat ext2 ntfs ntfscomp hfsplus \
+		chain boot linux
+EOF
+		chroot-script -d grubmkimage
 	popd
 
-	## copy the grub image to efi/boot (to go later in the device's root)
-	cp "$_tempdir"/bootx64.efi efi/boot
+	# copy the grub image to efi/boot (to go later in the device's root)
+	cp "$tempdir"/bootx64.efi efi/boot
 
-	## Do the boot image "boot/grub/efiboot.img"
+	# Do the boot image "boot/grub/efiboot.img"
 	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440
 	/sbin/mkdosfs -F 12 boot/grub/efiboot.img
 
-	sudo mkdir -p img-mnt
+	sudo mkdir img-mnt
 	sudo mount -o loop boot/grub/efiboot.img img-mnt
 	sudo mkdir -p img-mnt/efi/boot
-	sudo cp "$_tempdir"/bootx64.efi img-mnt/efi/boot/
+	sudo cp "$tempdir"/bootx64.efi img-mnt/efi/boot/
 
+	# copy modules and font
 	cp $strapdir/usr/lib/grub/x86_64-efi/* boot/grub/x86_64-efi/
 
-	## if this doesn't work try another font from the same place
-	## (grub's default, unicode.pf2, is much larger)
-	## Either of these will work, and they look the same to me.
-	## Unicode seems to work with qemu. -fsr
-
-	#cp /usr/share/grub/ascii.pf2 boot/grub/font.pf2
+	# if this doesn't work try another font from the same place (grub's default, unicode.pf2, is much larger)
+	# Either of these will work, and they look the same to me. Unicode seems to work with qemu. -fsr
+	# cp /usr/share/grub/ascii.pf2 boot/grub/font.pf2
 	cp $strapdir/usr/share/grub/unicode.pf2 boot/grub/font.pf2
 
-	## doesn't need to be root-owned
-	#sudo chown -R 1000:1000 $(pwd) 2>/dev/null
+	# copy splash
+	sudo cp -rav "$BLENDPATH"/isolinux-overlay/splash.png boot/grub/splash.png
 
-	## Cleanup efi temps
+	# Cleanup efi temps
 	sudo umount img-mnt
 	sudo rmdir img-mnt
-	rm -rf "$_tempdir"
+	rm -rf "$tempdir"
 
-	popd # $efi_work
+	popd
 
 
-	## Copy efi files to iso
+	# Copy efi files to iso
 	pushd $workdir
 	sudo rsync -avx "$efi_work"/boot binary/
 	sudo rsync -avx "$efi_work"/efi  binary/
 	popd
 
-	## Do the main grub.cfg (which gets loaded last):
+}
+
+
+iso_write_grub_cfg() {
+	fn iso_write_grub_cfg "(override)"
+	req=(workdir arch username)
+	ckreq || return 1
+
+	notice "writing grub configuration"
+
+	# Do the main grub.cfg (which gets loaded last):
 	cat <<EOF | sudo tee ${workdir}/binary/boot/grub/grub.cfg
 if loadfont $prefix/font.pf2 ; then
-	set gfxmode=640x480
-	insmod efi_gop
-	insmod efi_uga
-	insmod video_bochs
-	insmod video_cirrus
-	insmod gfxterm
-	insmod jpeg
-	insmod png
-	terminal_output gfxterm
+  set gfxmode=640x480
+  insmod efi_gop
+  insmod efi_uga
+  insmod video_bochs
+  insmod video_cirrus
+  insmod gfxterm
+  insmod jpeg
+  insmod png
+  terminal_output gfxterm
 fi
 
 background_image /boot/grub/splash.png
@@ -239,11 +249,34 @@ set menu_color_normal=white/black
 set menu_color_highlight=dark-gray/white
 set timeout=6
 
-menuentry "${os} (defaults)" {
-	set gfxpayload=keep
-	linux   /live/vmlinuz boot=live username=${username}
-	initrd  /live/initrd
+menuentry "${os}-live (${arch})" {
+    set gfxpayload=keep
+    linux   /live/vmlinuz boot=live username=$username
+    initrd  /live/initrd.img
 }
+
+menuentry "Other language" {
+	set gfxpayload=keep
+	linux /live/vmlinuz boot=live username=$username hooks=file:///lib/live/mount/medium/live/hooks/fix-lang.sh locales=it_IT.UTF-8
+	initrd /live/initrd.img
+}
+
+menuentry "${os}-live (load to RAM)" {
+    set gfxpayload=keep
+    linux   /live/vmlinuz boot=live username=$username toram
+    initrd  /live/initrd.img
+}
+
+menuentry "${os}-live (failsafe)" {
+    set gfxpayload=keep
+    linux   /live/vmlinuz boot=live username=$username noapic noapm nodma nomce nolapic nosmp vga=normal
+    initrd  /live/initrd.img
+}
+
+menuentry "Memory test" {
+	linux /live/memtest
+}
+
 EOF
 }
 
@@ -261,17 +294,34 @@ for i in cdrom floppy audio dip video plugdev netdev lpadmin scanner; do
 done
 
 chsh -s "${default_shell}" ${username}
-cp /usr/share/applications/refractainstaller.desktop /home/${username}/Desktop/
-chmod +x /home/${username}/Desktop/refractainstaller.desktop
 chown -R 1000:1000 /home/${username}
+cp /home/${username}/Desktop/refractainstaller.desktop /usr/share/applications/
+chmod +x /home/${username}/Desktop/refractainstaller.desktop
 
+# This can go away when desktop-base is fixed to do the grub theme.
 grep -q GRUB_THEME /etc/default/grub || {
-	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" \
-		>> /etc/default/grub
+	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" >> /etc/default/grub
 }
 
-rm -f /etc/fstab
+# Not sure if this has been fixed (in devuan-baseconf?)
+mv /data/etc/apt/apt.conf.d/05disable-suggests /etc/apt/apt.conf.d/
+rm -rf /data
 
+rm -f /etc/fstab
+rm -f /etc/popularity-contest.conf
+
+# For ascii if no display manager is used. Maybe this should have a
+# contitional that's turned on/off in the config?
+# echo "needs_root_rights=yes" >> /etc/X11/Xwrapper.config
+
+# Disable contrib and non-free after installing firmware.
+sed -i 's/contrib//g' /etc/apt/sources.list
+sed -i 's/non-free//g' /etc/apt/sources.list
+
+## package list
+dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
+
+apt-get update
 apt-get clean
 updatedb
 EOF
