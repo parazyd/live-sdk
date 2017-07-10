@@ -177,7 +177,6 @@ EOF
 				search iso9660 configfile normal memdisk tar cat \
 				part_msdos part_gpt fat ext2 ntfs ntfscomp hfsplus \
 				chain boot linux
-		chroot-script -d grubmkimage
 	popd
 
 	# copy the grub image to efi/boot (to go later in the device's root)
