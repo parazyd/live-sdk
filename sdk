@@ -65,6 +65,7 @@ load() {
 	blend_map=(
 		"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
 		"heads"          "$R/../heads.blend"
+		"decode"         "$R/../decode.blend"
 	)
 
 	oslib="${os_map[$os]}"
