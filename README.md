@@ -28,7 +28,7 @@ dev-libs/libisoburn sys-fs/squashfs-tools sys-boot/syslinux
 After cloning the live-sdk git repository, enter it and issue:
 
 ```
-git submodule update --init
+git submodule update --init --recursive --checkout
 ```
 
 ### Updating
@@ -36,7 +36,7 @@ git submodule update --init
 To update live-sdk, go to the root dir of the git repo and issue:
 
 ```
-git pull && git submodule update --init --recursive
+git pull && git submodule update --init --recursive --checkout
 ```
 
 ## Quick start
