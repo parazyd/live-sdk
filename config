@@ -23,6 +23,8 @@
 
 MAKEOPTS="-j$(grep -c 'processor' /proc/cpuinfo)"
 
+## uncomment if you wish to create stage4 tarballs for faster rebuilding
+# TAR_STAGE4=true
 
 ## extra_packages for all images
 extra_packages+=(
