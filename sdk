@@ -81,7 +81,7 @@ load() {
 	}
 
 	[[ -f $oslib ]]    || { die "no valid distro specified"; exit 1 }
-	[[ -f $blendlib ]] || { warn "no valid blend specified" }
+	[[ -f $blendlib ]] || { act "no blend specified" }
 
 	source $oslib
 	[[ -f $blendlib ]] && {
