@@ -23,6 +23,8 @@
 
 MAKEOPTS="-j$(grep -c 'processor' /proc/cpuinfo)"
 
+export PATH="$PATH:/usr/sbin:/sbin:/usr/bin:/bin"
+
 ## uncomment if you wish to create stage4 tarballs for faster rebuilding
 # TAR_STAGE4=true
 
