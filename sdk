@@ -64,6 +64,7 @@ load() {
 
 	blend_map=(
 		"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
+		"devuan-minimal-live"    "$R/blends/devuan-minimal-live/devuan-minimal-live.blend"
 		"heads"          "$R/../heads.blend"
 		"decode"         "$R/../decode.blend"
 	)
@@ -86,7 +87,7 @@ load() {
 	source $oslib
 	[[ -f $blendlib ]] && {
 		source $blendlib || zerr
-		act "$os blend leaded"
+		act "$os blend loaded"
 		export BLEND=1
 	}
 
