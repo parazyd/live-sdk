@@ -1,0 +1,74 @@
+#/bin/bash
+# ----------------------------------------------------------------------
+#
+# This file is part of microdevuan, a set of scripts to create minimal 
+# devuan live images
+# 
+# ----------------------------------------------------------------------
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ----------------------------------------------------------------------
+#
+# (c) KatolaZ <katolaz@freaknet.org> (2016)
+#
+# ----------------------------------------------------------------------
+
+
+##
+## A small daemon that just beeps every second, until the process
+## BB_PROCESS is ready...
+##
+
+. /etc/default/boot_beep
+
+
+##
+## First, daemonize the script
+##
+
+if [ "x$1" != "x--" ]; then
+    $0 -- 1> /dev/null 2> /dev/null &
+    exit 0
+fi
+
+
+check_process(){
+    
+    while [ 1 -gt 0 ]; do
+        login_ready=`ps ax | grep -E "${BB_PROCESS}" | grep -v "grep" | wc -l`
+        if [ $((${login_ready})) -ge 1 ]; then
+	###
+	### These lines should be put in a separate script, whose name is 
+	### specified in bb_defaults, to allow custom chimes....
+	### 
+	###
+            beep -D 50 -l 150 -f  523.25 
+            beep -D 50 -l 150 -f  629.25 
+            beep -D 50 -l 150 -f  784.00 
+            beep -D 50 -l 150 -f  629.25 
+            beep -D 50 -l 150 -f  523.25 
+            exit 0;
+        else
+            if [[ ${BB_BOOT_BEEP} = "TRUE" ]]; then 
+                beep -D 100 -l 250 -f 523.25
+            fi
+            sleep ${BB_INTERVAL};
+        fi
+    done
+}
+
+echo $$ >> ${BB_TMPFILE}
+
+check_process

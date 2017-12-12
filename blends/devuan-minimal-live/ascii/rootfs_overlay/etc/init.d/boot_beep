@@ -1,0 +1,132 @@
+#!/bin/sh
+# ----------------------------------------------------------------------
+#
+# This file is part of microdevuan, a set of scripts to create minimal 
+# devuan live images
+# 
+# ----------------------------------------------------------------------
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or (at
+# your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# ----------------------------------------------------------------------
+#
+# (c) KatolaZ <katolaz@freaknet.org> (2016)
+#
+# ----------------------------------------------------------------------
+
+### BEGIN INIT INFO
+# Provides:          boot_beep
+# Required-Start:    mountall
+# Required-Stop:     
+# Default-Start:     S
+# Default-Stop:      
+# Short-Description: Boot Beep Daemon
+### END INIT INFO
+
+
+. /etc/default/boot_beep
+
+rm_hanging_instances(){
+    
+    if [ -f ${BB_TMPFILE} ];  then
+        for i in `cat ${BB_TMPFILE}`; do
+            is_alive=`ps ax | grep "^${i} " | wc -l`
+            if [ $((${is_alive})) -gt 0 ]; then
+                kill -9 ${i}
+            fi
+        done
+        rm ${BB_TMPFILE}; touch ${BB_TMPFILE}
+    fi
+
+}
+
+check_active(){
+
+    ALIVE=0
+    if [ -f ${BB_TMPFILE} ];  then
+        for i in `cat ${BB_TMPFILE}`; do
+            is_alive=`ps ax | grep "^${i} " | wc -l`
+            if [ $((${is_alive})) -gt 0 ]; then
+                ALIVE=1
+            fi
+        done
+        if [ ${ALIVE} -ge 1 ]; then 
+            return 1;
+        else
+            return 0;
+        fi
+    else
+        return 0
+    fi
+    
+    
+}
+
+
+
+start_bb(){
+
+    check_active
+    if [ $? != 0 ]; then
+        echo "beep_boot is already running"
+        exit 1;
+    fi
+
+
+    rm_hanging_instances 
+    nohup ${BB_SCRIPTFILE}  2>&1 >/dev/null &
+    exit 0;
+}
+
+stop_bb(){
+    check_active 
+    if [ $? == 0 ]; then
+        echo "beep_boot is not running"
+        rm ${BB_TMPFILE}
+        exit 1;
+    fi
+
+    rm_hanging_instances
+    exit 0;
+}
+
+
+
+
+case $1 in 
+
+    start)
+        start_bb
+        exit 0;
+        ;;
+    
+    stop)
+        stop_bb;
+        exit 0;
+        ;;
+    
+    status)
+        check_active
+        if [ $? == 0 ]; then
+            echo "boot_beep is not up"
+        else
+            echo "boot_beep is up and running"
+        fi
+        exit 0
+        ;;
+
+    *)
+        echo "Usage: $0 {start|stop|status}"
+        exit 1;
+esac
