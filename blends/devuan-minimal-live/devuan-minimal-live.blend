@@ -36,6 +36,7 @@ blend_preinst() {
 	add-user $username $userpass
 
 	notice "copying blend-specific debs"
+	## TODO: copy the custom debs
 	##cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
 }
 
@@ -51,7 +52,7 @@ blend_postinst() {
 		iso_write_grub_cfg
 	}
 
-	## TODO:
+	## TODO: ENABLE THIS
 	#install-custdebs || zerr
 	pushd "$strapdir"
 		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || zerr
@@ -276,6 +277,14 @@ rm -f /etc/popularity-contest.conf
 sed -i 's/contrib//g' /etc/apt/sources.list
 sed -i 's/non-free//g' /etc/apt/sources.list
 
+## insert  service boot_beep
+insserv boot_beep
+
+##  Configure framebuffer
+setcap 'cap_sys_tty_config+ep' /usr/bin/fbterm                    
+chmod u+s /usr/bin/fbterm   
+
+
 ## package list
 dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
 
@@ -284,11 +293,6 @@ apt-get clean
 updatedb
 EOF
 
-	## TODO:
-	##
-	## - configure framebuffer
-	## - updatedb
-	## - insserv boot_beep
-	##
+
 	chroot-script -d finalize || zerr
 }
