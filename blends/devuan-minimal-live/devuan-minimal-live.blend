@@ -23,6 +23,7 @@ BLENDPATH="${BLENDPATH:-$(dirname $0)}"
 source $BLENDPATH/config
 
 blend_release_path=$BLENDPATH/$release/
+blend_scripts=${blend_release_path}/scripts
 
 ###source $BLENDPATH/$release/devuan-minimal-live.release
 
@@ -56,7 +57,7 @@ blend_postinst() {
 	#install-custdebs || zerr
 	pushd "$strapdir"
 		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || zerr
-		chmod 755 etc/init.d/boot_beep
+		sudo chmod 755 etc/init.d/boot_beep
 		## TODO:
 		## 		insserv boot_beep
 	popd
@@ -182,6 +183,7 @@ EOF
 }
 
 
+## UNUSED
 iso_write_grub_cfg() {
 	fn iso_write_grub_cfg "(override)"
 	req=(workdir arch username)
@@ -239,10 +241,21 @@ menuentry "Memory test" {
 EOF
 }
 
-blend_finalize() {
-	fn blend_finalize
-	req=(strapdir username default_shell)
-	ckreq || return 1
+## put the "create_initrd.sh" script
+
+##func
+put_create_initrd(){
+
+	sudo cp ${blend_scripts}/create_initrd.sh ${strapdir}/ >/dev/null
+
+	## Now we make it executable
+	sudo chmod 755 ${strapdir}/create_initrd.sh
+}
+
+## put the "finalize" script, that does the final work
+
+## func
+put_finalize(){
 
 	cat <<EOF | sudo tee ${strapdir}/finalize >/dev/null
 #!/bin/sh
@@ -254,13 +267,6 @@ done
 
 chsh -s "${default_shell}" ${username}
 chown -R 1000:1000 /home/${username}
-cp /home/${username}/Desktop/refractainstaller.desktop /usr/share/applications/
-chmod +x /home/${username}/Desktop/refractainstaller.desktop
-
-# This can go away when desktop-base is fixed to do the grub theme.
-grep -q GRUB_THEME /etc/default/grub || {
-	printf "\nGRUB_THEME=/usr/share/desktop-base/grub-themes/desktop-grub-theme/theme.txt\n" >> /etc/default/grub
-}
 
 # Not sure if this has been fixed (in devuan-baseconf?)
 mv /data/etc/apt/apt.conf.d/05disable-suggests /etc/apt/apt.conf.d/
@@ -284,6 +290,21 @@ insserv boot_beep
 setcap 'cap_sys_tty_config+ep' /usr/bin/fbterm                    
 chmod u+s /usr/bin/fbterm   
 
+## Make initramfs
+
+SLIM_INITRD=initrd_devuan.img
+MICRO_INITRD=initramfs-\$(uname -r).img
+INITRD_COMPR="xz --check=crc32 --x86 -6 -"
+  
+
+/create_initrd.sh /boot/initrd.img-`uname -r` /boot/\${SLIM_INITRD} \
+    "\${INITRD_COMPR}" /boot/\${MICRO_INITRD}
+
+unlink /initrd.img
+ln -s /boot/\${MICRO_INITRD} /initrd.img
+
+## rm create_initrd.sh
+##sudo rm /create_initrd.sh
 
 ## package list
 dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
@@ -292,7 +313,18 @@ apt-get update
 apt-get clean
 updatedb
 EOF
+}
 
+
+
+blend_finalize() {
+	fn blend_finalize
+	req=(strapdir username default_shell)
+	ckreq || return 1
+
+	put_create_initrd 
+
+	put_finalize
 
 	chroot-script -d finalize || zerr
 }
