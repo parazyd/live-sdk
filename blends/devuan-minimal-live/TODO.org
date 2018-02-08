@@ -8,9 +8,7 @@
 ** DONE change initrd name
 
 * TODO put correct initrd.img in binary/live/
-
-* TODO Put debs in custom_debs
-
+* IN-PROGRESS Put debs in custom_debs
 * TODO Include memtest86+.bin in binary/live/
 
 
