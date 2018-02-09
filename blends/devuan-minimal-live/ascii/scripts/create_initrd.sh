@@ -75,7 +75,7 @@ fi
 ## Determine how the original initrd was compressed...
 ##
 
-INITRD_FILE=`file ${INITRD_ORIG}`
+INITRD_FILE=`file -L ${INITRD_ORIG}`
 
 if [ `echo ${INITRD_FILE} | grep gzip | wc -l` = 1 ]; then
     INITRD_UNCOMPRESS=zcat;

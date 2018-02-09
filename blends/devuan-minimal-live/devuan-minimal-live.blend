@@ -293,7 +293,7 @@ chmod u+s /usr/bin/fbterm
 ## Make initramfs
 
 SLIM_INITRD=initrd_devuan.img
-MICRO_INITRD=initramfs-\$(uname -r).img
+MICRO_INITRD=initramfs.img
 INITRD_COMPR="xz --check=crc32 --x86 -6 -"
   
 
