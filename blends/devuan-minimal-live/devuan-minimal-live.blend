@@ -293,14 +293,14 @@ chmod u+s /usr/bin/fbterm
 ## Make initramfs
 
 SLIM_INITRD=initrd_devuan.img
-MICRO_INITRD=initramfs.img
+MICRO_INITRD=/boot/initrd.img
 INITRD_COMPR="xz --check=crc32 --x86 -6 -"
   
 
-/create_initrd.sh /boot/initrd.img-`uname -r` /boot/\${SLIM_INITRD} \
-    "\${INITRD_COMPR}" /boot/\${MICRO_INITRD}
+/create_initrd.sh /initrd.img /boot/\${SLIM_INITRD} \
+    "\${INITRD_COMPR}" \${MICRO_INITRD}
 
-unlink /initrd.img
+rm /initrd.img
 ln -s /boot/\${MICRO_INITRD} /initrd.img
 
 ## rm create_initrd.sh
