@@ -4,14 +4,15 @@
 
 * DONE Amend motd
 
-* IN-PROGRESS amend isolinux_overlay/isolinux.cfg 
+* DONE amend isolinux_overlay/isolinux.cfg 
 ** DONE change initrd name
 
-* TODO put correct initrd.img in binary/live/
+* DONE put correct initrd.img in binary/live/
 * IN-PROGRESS Put debs in custom_debs
 * TODO Include memtest86+.bin in binary/live/
-
-
+* TODO put README
+* TODO put script to remove firmware packages
+* TODO Rebuild all
 
 
 

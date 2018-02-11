@@ -3,7 +3,7 @@
 # live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
 #
 # This file is part of live-sdk
-# devuan-minimal-live.blend is maintained by KatolaZ
+# devuan-minimal-live.blend is maintained by KatolaZ <katolaz@freaknet.org>
 #
 # This source code is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ blend_preinst() {
 
 	notice "copying blend-specific debs"
 	## TODO: copy the custom debs
-	##cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+	cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
 }
 
 blend_postinst() {
@@ -54,12 +54,10 @@ blend_postinst() {
 	}
 
 	## TODO: ENABLE THIS
-	#install-custdebs || zerr
+	install-custdebs || zerr
 	pushd "$strapdir"
 		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || zerr
 		sudo chmod 755 etc/init.d/boot_beep
-		## TODO:
-		## 		insserv boot_beep
 	popd
 
 	blend_finalize || zerr
@@ -300,19 +298,41 @@ INITRD_COMPR="xz --check=crc32 --x86 -6 -"
 /create_initrd.sh /initrd.img /boot/\${SLIM_INITRD} \
     "\${INITRD_COMPR}" \${MICRO_INITRD}
 
-rm /initrd.img
-ln -s /boot/\${MICRO_INITRD} /initrd.img
+rm -f $(realpath /initrd.img)
+rm -f $(realpath /initrd.img.old)
+
+echo "====> Content of /boot before rm:"
+
+ls /boot
+
+rm -f /initrd.img
+rm -f /initrd.img.old
+rm -f /boot/initrd.img-*
+
+
+echo "====> Content of /boot AFTER rm:"
+
+ls /boot
+
+ln -s \${MICRO_INITRD} /initrd.img
+
+
 
 ## rm create_initrd.sh
-##sudo rm /create_initrd.sh
+##rm /create_initrd.sh
 
 ## package list
 dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
 
-apt-get update
+##apt-get update
 apt-get clean
+rm /var/cache/apt/*.bin
 updatedb
+
 EOF
+
+	cp ${strapdir}/finalize ${strapdir}/finalize.bak
+	
 }
 
 
@@ -326,5 +346,10 @@ blend_finalize() {
 
 	put_finalize
 
-	chroot-script -d finalize || zerr
+	#chroot-script -d finalize || zerr
+	chroot-script finalize || zerr
+
+	printf "copying ${strapdir}/boot/initrd.img to ${workdir}/binary/live/..."
+	sudo cp -L ${strapdir}/boot/initrd.img ${workdir}/binary/live/
+	echo "done"
 }

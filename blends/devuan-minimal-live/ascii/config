@@ -236,26 +236,27 @@ base_packages+=(
 #### TODO: ADD refractainstaller
 #### ADDED: geoip-bin
 
-#extra_packages+=(
-#	b43-fwcutter
-#	firmware-atheros
-#	firmware-b43-installer
-#	firmware-b43legacy-installer
-#	firmware-bnx2
-#	firmware-bnx2x
-#	firmware-brcm80211
-#	firmware-intelwimax
-#	firmware-iwlwifi
-#	firmware-libertas
-#	firmware-linux-nonfree
-#	firmware-myricom
-#	firmware-netxen
-#	firmware-qlogic
-#	firmware-ralink
-#	firmware-realtek
-#	firmware-ti-connectivity
-#	firmware-zd1211
-#)
+extra_packages+=(
+	b43-fwcutter
+	firmware-atheros
+	firmware-b43-installer
+	firmware-b43legacy-installer
+	firmware-bnx2
+	firmware-bnx2x
+	firmware-brcm80211
+	firmware-intelwimax
+	firmware-iwlwifi
+	firmware-libertas
+	firmware-linux-nonfree
+	firmware-myricom
+	firmware-netxen
+	firmware-qlogic
+	firmware-realtek
+	firmware-ti-connectivity
+	firmware-zd1211
+	refractainstaller-base
+	refractasnapshot-base
+)
 
 
 purge_packages=(

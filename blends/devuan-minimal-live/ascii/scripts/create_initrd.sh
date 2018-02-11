@@ -51,11 +51,10 @@ INITRD_NEW=$2
 INITRD_COMPR=$3
 INITRD_MICRO=$4
 
-echo "$0: got $1 $2 $3 $4"
 
 WORK_DIR=/tmp/initrd_new
 
-MODULE_DIR=lib/modules/`uname -r`/kernel
+MODULE_DIRS=$(ls lib/modules/)
 
 ####
 ##
@@ -77,11 +76,11 @@ fi
 
 INITRD_FILE=`file -L ${INITRD_ORIG}`
 
-if [ `echo ${INITRD_FILE} | grep gzip | wc -l` = 1 ]; then
+if [ `echo ${INITRD_FILE} | grep gzip | wc -l` == 1 ]; then
     INITRD_UNCOMPRESS=zcat;
-elif [ `echo ${INITRD_FILE} | grep bzip2 | wc -l` = 1 ]; then 
+elif [ `echo ${INITRD_FILE} | grep bzip2 | wc -l` == 1 ]; then 
     INITRD_UNCOMPRESS=bzcat;
-elif [ `echo ${INITRD_FILE} | grep " xz " | wc -l` = 1 ]; then 
+elif [ `echo ${INITRD_FILE} | grep " xz " | wc -l` == 1 ]; then 
     INITRD_UNCOMPRESS=xzcat;
 else
     echo "Unable to determine the format of ${INITRD_ORIG} -- Aborting!!!"
@@ -100,53 +99,99 @@ echo "done!"
 ## that the root partition is not over nfs...
 ## 
 
-echo -n "===> Removing network drivers..."    
+for M in ${MODULE_DIRS}; do 
 
+	echo "===> Removing drivers for kernel version ${M} <==="
 
-##rm -rf ${MODULE_DIR}/drivers/net/ethernet/*
-rm -rf ${MODULE_DIR}/drivers/net/*
+	MODULE_DIR="lib/modules/${M}/kernel"
+	
+	echo -n "===> Removing unnecessary network drivers..."    
+
+	##rm -rf ${MODULE_DIR}/drivers/net/ethernet/*
+	rm -rf ${MODULE_DIR}/drivers/net/*
+
+	echo "done!"
+	
+	####
+	##
+	## Remove unnecessary filesystem support
+	##
+	##
+	
+	echo -n "===> Removing unnecessary filesystems drivers..."    
+	
+	##rm -rf ${MODULE_DIR}/fs/nfs
+	rm -rf ${MODULE_DIR}/fs/xfs
+	rm -rf ${MODULE_DIR}/fs/btrfs
+	##rm -rf ${MODULE_DIR}/fs/ext4
+	rm -rf ${MODULE_DIR}/fs/fat
+	rm -rf ${MODULE_DIR}/fs/fuse
+	rm -rf ${MODULE_DIR}/fs/hfs
+	rm -rf ${MODULE_DIR}/fs/hfsplus
+	rm -rf ${MODULE_DIR}/fs/reiserfs
+	rm -rf ${MODULE_DIR}/fs/ntfs
+	rm -rf ${MODULE_DIR}/fs/jfs
+	rm -rf ${MODULE_DIR}/fs/jffs2
+	rm -rf ${MODULE_DIR}/fs/udf
+	rm -rf ${MODULE_DIR}/fs/nls
+	rm -rf ${MODULE_DIR}/fs/nfs_common
+	
+	echo "done!"
+	
+	####
+	##
+	## Remove the lftp and qla2xxx drivers (FibreChannel)
+	##
+	
+	echo -n "===> Removing unnecessary SCSI drivers..."    
+
+	
+	rm -rf ${MODULE_DIR}/drivers/scsi/lpfc
+	rm -rf ${MODULE_DIR}/drivers/scsi/qla2xxx
+	rm -rf ${MODULE_DIR}/drivers/scsi/fnic
+	rm -rf ${MODULE_DIR}/drivers/scsi/csiostor
+	rm -rf ${MODULE_DIR}/drivers/scsi/isci
+	rm -rf ${MODULE_DIR}/drivers/scsi/cxgbi
+	rm -rf ${MODULE_DIR}/drivers/scsi/megaraid
+	rm -rf ${MODULE_DIR}/drivers/scsi/mpt2sas
+	rm -rf ${MODULE_DIR}/drivers/scsi/mpt3sas
+	rm -rf ${MODULE_DIR}/drivers/scsi/pm8001
+	rm -rf ${MODULE_DIR}/drivers/scsi/qla4xxx
+	rm -rf ${MODULE_DIR}/drivers/scsi/aic7xxx
+	rm -rf ${MODULE_DIR}/drivers/scsi/bfa
+
+	echo "done!"
+		
+	## remove the gpu driver folder  altogether
+	
+	echo -n "===> Removing unnecessary GPU drivers..."    
+	
+	rm -rf ${MODULE_DIR}/drivers/gpu/
+	
+	echo "done"
+
+	echo -n "===> Removing unnecessary firmware..."    
+	
+	rm -rf ${MODULE_DIR}/firmware/radeon/
+	rm -rf ${MODULE_DIR}/firmware/cxgb4
+
+	echo "done"
+
+	
+done
+
+##
+## Remove unnecessary stuff in /bin and /sbin
+##
+
+echo -n "===> Removing unnecessary stuff in /bin and /sbin..."    
+
+#rm -rf bin/rsync bin/wget
+#rm -rf sbin/acpid
+#rm -rf lib/systemd
 
 echo "done!"
 
-####
-##
-## Remove unnecessary filesystem support
-##
-##
-
-echo -n "===> Removing unnecessary filesystems drivers..."    
-
-
-##rm -rf ${MODULE_DIR}/fs/nfs
-rm -rf ${MODULE_DIR}/fs/xfs
-rm -rf ${MODULE_DIR}/fs/btrfs
-##rm -rf ${MODULE_DIR}/fs/ext4
-rm -rf ${MODULE_DIR}/fs/fat
-rm -rf ${MODULE_DIR}/fs/fuse
-rm -rf ${MODULE_DIR}/fs/hfs
-rm -rf ${MODULE_DIR}/fs/hfsplus
-rm -rf ${MODULE_DIR}/fs/reiserfs
-rm -rf ${MODULE_DIR}/fs/ntfs
-rm -rf ${MODULE_DIR}/fs/jfs
-rm -rf ${MODULE_DIR}/fs/jffs2
-rm -rf ${MODULE_DIR}/fs/udf
-rm -rf ${MODULE_DIR}/fs/nls
-rm -rf ${MODULE_DIR}/fs/nfs_common
-
-echo "done!"
-
-####
-##
-## Remove the lftp and qla2xxx drivers (FibreChannel)
-##
-
-echo -n "===> Removing unnecessary SCSI drivers..."    
-
-
-rm -rf ${MODULE_DIR}/drivers/scsi/lpfc
-rm -rf ${MODULE_DIR}/drivers/scsi/qla2xxx
-
-echo "done!"
 
 ####
 ##
@@ -160,46 +205,6 @@ echo -n "===> Removing unnecessary libraries in /usr/lib..."
 echo "done!"
 
 ####
-##
-## Remove unnecessary stuff in /bin and /sbin
-##
-
-echo -n "===> Removing unnecessary stuff in /bin and /sbin..."    
-
-#rm -rf bin/rsync bin/wget
-#rm -rf sbin/acpid
-#rm -rf lib/systemd
-
-echo "done!"
-
-####
-##
-## Now we create the new slim initrd
-##
-
-# echo -n "===> Creating new initrd '${INITRD_NEW}' using ${INITRD_COMPR}..."    
-
-
-# find . | cpio -H newc -o | `echo ${INITRD_COMPR}` > ${INITRD_NEW}
-
-# echo "done!"
-
-####
-##
-## Now we go for the extremely stripped down initrd
-##
-
-rm -rf ${MODULE_DIR}/drivers/scsi/fnic
-rm -rf ${MODULE_DIR}/drivers/scsi/csiostor
-rm -rf ${MODULE_DIR}/drivers/scsi/isci
-rm -rf ${MODULE_DIR}/drivers/scsi/cxgbi
-rm -rf ${MODULE_DIR}/drivers/scsi/megaraid
-rm -rf ${MODULE_DIR}/drivers/scsi/mpt2sas
-rm -rf ${MODULE_DIR}/drivers/scsi/mpt3sas
-rm -rf ${MODULE_DIR}/drivers/scsi/pm8001
-rm -rf ${MODULE_DIR}/drivers/scsi/qla4xxx
-rm -rf ${MODULE_DIR}/drivers/scsi/aic7xxx
-rm -rf ${MODULE_DIR}/drivers/scsi/bfa
 
 
 ####

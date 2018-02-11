@@ -24,8 +24,8 @@ default_shell="/bin/bash"
 #grubversion="grub-efi-amd64"
 
 ##release="ascii"
-mirror="http://devuan.mine.nu/merged"
-section="main"
+mirror="http://pkgmaster.devuan.org/merged"
+section="main contrib non-free"
 
 
 base_packages_option=(--no-install-recommends)
