@@ -36,7 +36,7 @@ blend_preinst() {
 
 	add-user $username $userpass
 
-	notice "copying blend-specific debs"
+	notice "copying blend-specific debs into $R/extra/custom-packages"
 	## TODO: copy the custom debs
 	cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
 }
