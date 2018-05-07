@@ -101,6 +101,7 @@ minimal_net_packages+=(
 	openssh-server
 	procmail
 	rsync
+	setnet
 	telnet
 	tin
 	traceroute
@@ -230,10 +231,7 @@ base_packages+=(
 	$minimal_misc_packages
 )
 
-#### TODO: ADD setnet
 #### TODO: REPLACE twidge (twitter client)
-#### TODO: ADD refractasnapshot
-#### TODO: ADD refractainstaller
 #### ADDED: geoip-bin
 
 extra_packages+=(
@@ -281,13 +279,9 @@ purge_packages=(
 
 
 # yad needs to be first
-#custom_deb_packages+=(yad_0.27.0-1_${arch}.deb)
+#$custom_deb_packages+=(yad_0.27.0-1_${arch}.deb)
 #
 #
-#custom_deb_packages+=(
-#	refractainstaller-base_9.3.0_all.deb
-#	refractainstaller-gui_9.2.2_all.deb
-#	refractasnapshot-base_10.0.2_all.deb
-#	refractasnapshot-gui_9.0.2_all.deb
-#	setnet_0.3.2-1_all.deb
-#)
+##custom_deb_packages+=(
+##	setnet_0.3.2+devuan1.2_all.deb
+##)

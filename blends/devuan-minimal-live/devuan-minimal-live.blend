@@ -321,6 +321,12 @@ ln -s \${MICRO_INITRD} /initrd.img
 ## rm create_initrd.sh
 ##rm /create_initrd.sh
 
+## install additional packages
+
+cd /custom-packages
+dpkg -i \$(find ./ -type f -name '*.deb')
+
+
 ## package list
 dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
 
@@ -335,6 +341,11 @@ EOF
 	
 }
 
+## func
+# put_packages(){
+
+# 	sudo cp -a "$R/extra/custom-packages/" ${strapdir} 
+# }
 
 
 blend_finalize() {
@@ -343,7 +354,8 @@ blend_finalize() {
 	ckreq || return 1
 
 	put_create_initrd 
-
+	#put_packages
+	
 	put_finalize
 
 	#chroot-script -d finalize || zerr
