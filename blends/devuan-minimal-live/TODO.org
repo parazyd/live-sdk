@@ -8,11 +8,11 @@
 ** DONE change initrd name
 
 * DONE put correct initrd.img in binary/live/
-* IN-PROGRESS Put debs in custom_debs
+* DONE Put debs in custom_debs
 * TODO Include memtest86+.bin in binary/live/
-* TODO put README
-* TODO put script to remove firmware packages
-* TODO Rebuild all
+* DONE put README
+* DONE put script to remove firmware packages
+* IN-PROGRESS Rebuild all
 
 
 

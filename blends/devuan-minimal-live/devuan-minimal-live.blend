@@ -319,7 +319,7 @@ ln -s \${MICRO_INITRD} /initrd.img
 
 
 ## rm create_initrd.sh
-##rm /create_initrd.sh
+rm /create_initrd.sh
 
 ## install additional packages
 
@@ -335,9 +335,15 @@ apt-get clean
 rm /var/cache/apt/*.bin
 updatedb
 
+rm -f /initrd.img
+rm -f /initrd.img.old
+rm -f /boot/initrd.img-*
+ln -s \${MICRO_INITRD} /initrd.img
+
+
 EOF
 
-	cp ${strapdir}/finalize ${strapdir}/finalize.bak
+##	cp ${strapdir}/finalize ${strapdir}/finalize.bak
 	
 }
 
