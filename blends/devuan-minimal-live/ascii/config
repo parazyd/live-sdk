@@ -2,7 +2,7 @@
 ## configuration file for devuan-live blend -- ASCII release
 
 
-version="2.0.0-rc"
+version="2.0.0"
 
 
 ## 

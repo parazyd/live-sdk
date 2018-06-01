@@ -278,8 +278,11 @@ rm -f /etc/popularity-contest.conf
 # echo "needs_root_rights=yes" >> /etc/X11/Xwrapper.config
 
 # Disable contrib and non-free after installing firmware.
-sed -i 's/contrib//g' /etc/apt/sources.list
-sed -i 's/non-free//g' /etc/apt/sources.list
+sed -i 's/ contrib//g' /etc/apt/sources.list
+sed -i 's/ non-free//g' /etc/apt/sources.list
+
+## Disable updates
+sed -i '/-updates/s/^/## /g' /etc/apt/sources.list
 
 ## insert  service boot_beep
 insserv boot_beep
@@ -328,7 +331,7 @@ dpkg -i \$(find ./ -type f -name '*.deb')
 
 
 ## package list
-dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
+#dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
 
 ##apt-get update
 apt-get clean

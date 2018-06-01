@@ -1,7 +1,7 @@
 #+TODO: TODO IN-PROGRESS | DONE
 
-
-
+* TODO Chec boot_beep (check config files and all!!!)
+* DONE remove packages_list from /home/devuan
 * DONE Amend motd
 
 * DONE amend isolinux_overlay/isolinux.cfg 
