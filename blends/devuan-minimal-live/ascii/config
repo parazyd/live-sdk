@@ -31,6 +31,7 @@ minimal_base_packages+=(
 	dselect
 	file
 	groff-base
+	grub-pc
 	info
 	kbd
 	laptop-detect
@@ -236,13 +237,10 @@ base_packages+=(
 
 extra_packages+=(
 	atmel-firmware
-	b43-fwcutter
 	bluez-firmware
 	dahdi-firmware-nonfree
 	firmware-amd-graphics
 	firmware-atheros
-	firmware-b43-installer
-	firmware-b43legacy-installer
 	firmware-bnx2
 	firmware-bnx2x
 	firmware-brcm80211

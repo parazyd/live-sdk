@@ -37,8 +37,8 @@ blend_preinst() {
 	add-user $username $userpass
 
 	notice "copying blend-specific debs into $R/extra/custom-packages"
-	## TODO: copy the custom debs
-	cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+	## No more custom-packages
+	##cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
 }
 
 blend_postinst() {
@@ -310,6 +310,9 @@ ls /boot
 
 rm -f /initrd.img
 rm -f /initrd.img.old
+
+KERN_ORIG=\$(ls /boot/initrd.img-* | head -1 | cut -d "-" -f 2-)
+
 rm -f /boot/initrd.img-*
 
 
@@ -342,6 +345,8 @@ rm -f /initrd.img
 rm -f /initrd.img.old
 rm -f /boot/initrd.img-*
 ln -s \${MICRO_INITRD} /initrd.img
+
+ln -s \${MICRO_INITRD} /boot/initrd.img-\${KERN_ORIG}
 
 
 EOF

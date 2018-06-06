@@ -7,13 +7,10 @@
 FIRMWARE_PKGS="\
 
 atmel-firmware \
-b43-fwcutter \
 bluez-firmware \
 dahdi-firmware-nonfree \
 firmware-amd-graphics \
 firmware-atheros \
-firmware-b43-installer \
-firmware-b43legacy-installer \
 firmware-bnx2 \
 firmware-bnx2x \
 firmware-brcm80211 \
@@ -21,8 +18,6 @@ firmware-cavium \
 firmware-crystalhd \
 firmware-intel-sound \
 firmware-intelwimax \
-firmware-ipw2x00 \
-firmware-ivtv \
 firmware-iwlwifi \
 firmware-libertas \
 firmware-linux-nonfree \
