@@ -1,0 +1,295 @@
+#!/usr/bin/env zsh
+## configuration file for devuan-live blend -- ASCII release
+
+
+version="2.0.0"
+
+
+## 
+## definition of package sets
+##
+
+### base package set
+minimal_base_packages+=(
+	acpi
+	acpi-support-base
+	acpid
+	at
+	bash
+	bash-completion
+	bc
+	busybox
+	console-common
+	console-data
+	console-setup
+	console-setup-linux
+	coreutils
+	dash
+	dc
+	dialog
+	discover
+	dselect
+	file
+	groff-base
+	grub-pc
+	info
+	kbd
+	laptop-detect
+	locales
+	lsof
+	syslinux
+	util-linux-locales
+	zsh
+)
+
+## admin package set 
+minimal_admin_packages+=(
+	debootstrap
+	entr
+	gddrescue
+	gdisk
+	htop
+	iftop
+	iotop
+	iw
+	mtr-tiny
+	multitail
+	ncdu
+   	parted 
+	pciutils
+	psmisc
+	sudo
+	time
+	wavemon 
+	wireless-tools
+   	wpasupplicant
+	
+)
+
+## editors package set 
+minimal_editors_packages+=(
+	ed
+	nano
+	vim-tiny
+	zile
+)
+
+
+## networking package set 
+minimal_net_packages+=(
+	bind9-host
+	bittornado
+	curl
+	dnsutils
+	edbrowse
+	fetchmail
+	ftp
+	geoip-bin
+	irssi
+	lftp
+	links2
+	lrzsz
+	mcabber
+	minicom
+	mosh
+	msmtp
+	mutt
+	netcat
+	net-tools
+	nfacct
+	nrss
+	openssh-client
+	openssh-server
+	procmail
+	rsync
+	setnet
+	telnet
+	tin
+	traceroute
+	w3m
+	wget	
+	whois
+)
+
+
+## productivity package set 
+minimal_prod_packages+=(
+	abook
+	apcalc
+   	aspell
+	aspell-en
+    calcurse
+    clex
+    dvtm
+	fbi
+    fbterm
+    ghostscript
+    gnupg
+	gnupg2
+	gnupg-agent
+    mc
+    parallel
+	poppler-utils
+	rpl
+	rename
+    sc
+    screen
+    taskwarrior
+    tmux	
+)
+
+## programming package set
+minimal_devel_packages+=(
+	tcc
+	libc6-dev
+	m4
+	patch
+	perl
+	perl-base
+	perl-modules-5.24
+	python2.7-minimal
+	python3.5-minimal
+	gawk
+	guile-2.0
+	guile-2.0-libs
+)
+
+## games package set 
+minimal_games_packages+=(
+	bastet
+    bombardier
+    bsdgames
+    cavezofphear
+    crawl
+    curseofwar
+    empire
+    freesweep
+    gnuchess
+    greed
+    matanza
+    moria
+    nethack-console
+    ninvaders
+    omega-rpg
+    pacman4console
+    pente
+    sudoku
+)
+
+## accessibility package set 
+minimal_a11y_packages+=(
+	beep
+    brltty
+	espeak
+    espeakup
+    yasr
+)
+
+
+## multimedia package set 
+minimal_media_packages+=(
+	alsa-utils
+	caca-utils
+    hasciicam
+    imagemagick
+    jhead
+    moc
+    radio
+    sox	
+)
+
+## misc package set
+minimal_misc_packages+=(
+	cmatrix
+    cowsay
+	eject
+    figlet
+	fortunes-min
+    fortune-mod
+    gpm
+	man-db
+	manpages
+	manpages-dev
+	mlocate
+    termsaver
+    toilet
+	toilet-fonts
+    ttyrec	
+	unzip
+)
+
+### now we include all the package sets
+base_packages+=(
+	$minimal_base_packages
+	$minimal_admin_packages
+	$minimal_editors_packages
+	$minimal_net_packages
+	$minimal_prod_packages
+	$minimal_devel_packages
+	$minimal_games_packages
+	$minimal_a11y_packages
+	$minimal_media_packages
+	$minimal_misc_packages
+)
+
+#### TODO: REPLACE twidge (twitter client)
+#### ADDED: geoip-bin
+
+extra_packages+=(
+	atmel-firmware
+	bluez-firmware
+	dahdi-firmware-nonfree
+	firmware-amd-graphics
+	firmware-atheros
+	firmware-bnx2
+	firmware-bnx2x
+	firmware-brcm80211
+	firmware-cavium
+	firmware-crystalhd
+	firmware-intel-sound
+	firmware-intelwimax
+	firmware-ipw2x00
+	firmware-ivtv
+	firmware-iwlwifi
+	firmware-libertas
+	firmware-linux-free
+	firmware-linux-nonfree
+	firmware-myricom
+	firmware-netxen
+	firmware-qlogic
+	firmware-realtek
+	firmware-ti-connectivity
+	firmware-zd1211
+	refractainstaller-base
+	refractasnapshot-base
+)
+
+
+purge_packages=(
+	btrfs-tools
+	cryptsetup
+	cryptsetup-bin
+	debian-keyring
+	elinks
+	elinks-data
+	git
+	git-core
+	git-man
+	liberror-perl
+	libfsplib0
+	libtre5
+	openntpd
+	tasksel
+	tasksel-data
+	vim
+	vim-runtime
+)
+
+
+# yad needs to be first
+#$custom_deb_packages+=(yad_0.27.0-1_${arch}.deb)
+#
+#
+##custom_deb_packages+=(
+##	setnet_0.3.2+devuan1.2_all.deb
+##)

@@ -1,0 +1,381 @@
+#!/usr/bin/env zsh
+# Copyright (c) 2017 Dyne.org Foundation
+# live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
+#
+# This file is part of live-sdk
+# devuan-minimal-live.blend is maintained by KatolaZ <katolaz@freaknet.org>
+#
+# This source code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This software is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this source code. If not, see <http://www.gnu.org/licenses/>.
+
+BLENDPATH="${BLENDPATH:-$(dirname $0)}"
+
+source $BLENDPATH/config
+
+blend_release_path=$BLENDPATH/$release/
+blend_scripts=${blend_release_path}/scripts
+
+###source $BLENDPATH/$release/devuan-minimal-live.release
+
+blend_preinst() {
+	fn blend_preinst
+	req=(blend_name username userpass)
+	ckreq || return 1
+
+	notice "executing $blend_name preinst"
+
+	add-user $username $userpass
+
+	notice "copying blend-specific debs into $R/extra/custom-packages"
+	## No more custom-packages
+	##cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+}
+
+blend_postinst() {
+	fn blend_postinst
+	req=(strapdir blend_name)
+	ckreq || return 1
+
+	notice "executing $blend_name postinst"
+
+	[[ "$mkefi" = "yes" ]] && {
+		iso_make_efi
+		iso_write_grub_cfg
+	}
+
+	## TODO: ENABLE THIS
+	install-custdebs || zerr
+	pushd "$strapdir"
+		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || zerr
+		sudo chmod 755 etc/init.d/boot_beep
+	popd
+
+	blend_finalize || zerr
+}
+
+iso_write_isolinux_cfg() {
+	fn iso_write_isolinux_cfg "(override)"
+	req=(workdir arch username)
+	ckreq || return 1
+
+	notice "copying isolinux overlay"
+	sudo mkdir -p "$workdir"/binary/{live,isolinux}
+	sudo cp -rav "$blend_release_path"/isolinux_overlay/* "$workdir"/binary/isolinux/
+	#[[ -n "$hookscripts" ]] && {
+	#	sudo cp -av "$BLENDPATH"/hooks "$workdir"/binary/live/
+	#}
+}
+
+# create /boot and /efi for uefi.
+# uefi code borrowed and adapted from David Hare, who borrowed and adapted it
+# from similar scripts by Colin Watson and Patrick J. Volkerding.
+iso_make_efi() {
+	fn iso_make_efi
+	req=(workdir efi_work)
+	ckreq || return 1
+
+	notice "creating efi boot files"
+
+	tempdir="$(mktemp -d /tmp/work_temp.XXXX)"
+	# for initial grub.cfg
+	mkdir -p "$tempdir"/boot/grub
+
+
+	cat >"$tempdir"/boot/grub/grub.cfg <<EOF
+search --file --set=root /isolinux/isolinux.cfg
+set prefix=(\$root)/boot/grub
+source \$prefix/x86_64-efi/grub.cfg
+EOF
+
+	mkdir -p "$efi_work"
+	pushd "$efi_work"
+
+	# start with empty directories.
+	rm -rf boot; mkdir -p boot/grub/x86_64-efi
+	rm -rf efi ; mkdir -p efi/boot
+
+	# second grub.cfg file
+	for i in $(find $strapdir/usr/lib/grub/x86_64-efi -name 'part_*.mod'); do
+		print "insmod $(basename $i)" >> boot/grub/x86_64-efi/grub.cfg
+	done
+
+	# Additional modules so we don't boot in blind mode.
+	# I don't know which ones are really needed.
+	efimods=(
+		efi_gop
+		efi_uga
+		ieee1275_fb
+		vbe
+		vga
+		video_bochs
+		video_cirrus
+		jpeg
+		png
+		gfxterm
+	)
+	for i in $efimods; do
+		print "insmod $i" >> boot/grub/x86_64-efi/grub.cfg
+	done
+
+	print "source /boot/grub/grub.cfg" >> boot/grub/x86_64-efi/grub.cfg
+
+	pushd "$tempdir"
+		# make a tarred "memdisk" to embed in the grub image
+		tar -cvf memdisk boot
+
+		# make the grub image
+		grub-mkimage -O "x86_64-efi" -m "memdisk" -o "bootx64.efi" \
+			-p '(memdisk)/boot/grub' \
+				search iso9660 configfile normal memdisk tar cat \
+				part_msdos part_gpt fat ext2 ntfs ntfscomp hfsplus \
+				chain boot linux
+	popd
+
+	# copy the grub image to efi/boot (to go later in the device's root)
+	cp "$tempdir"/bootx64.efi efi/boot
+
+	# Do the boot image "boot/grub/efiboot.img"
+	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440
+	mkfs.vfat -F 12 boot/grub/efiboot.img
+
+	sudo mkdir img-mnt
+	sudo mount -o loop boot/grub/efiboot.img img-mnt
+	sudo mkdir -p img-mnt/efi/boot
+	sudo cp "$tempdir"/bootx64.efi img-mnt/efi/boot/
+
+	# copy modules and font
+	cp $strapdir/usr/lib/grub/x86_64-efi/* boot/grub/x86_64-efi/
+
+	# if this doesn't work try another font from the same place (grub's default, unicode.pf2, is much larger)
+	# Either of these will work, and they look the same to me. Unicode seems to work with qemu. -fsr
+	# cp /usr/share/grub/ascii.pf2 boot/grub/font.pf2
+	cp $strapdir/usr/share/grub/unicode.pf2 boot/grub/font.pf2
+
+	# copy splash
+	sudo cp -rav "$blend_release_path"/isolinux_overlay/splash.png boot/grub/splash.png
+
+	# Cleanup efi temps
+	sudo umount img-mnt
+	sudo rmdir img-mnt
+	rm -rf "$tempdir"
+
+	popd
+
+
+	# Copy efi files to iso
+	pushd $workdir
+	sudo rsync -avx "$efi_work"/boot binary/
+	sudo rsync -avx "$efi_work"/efi  binary/
+	popd
+
+}
+
+
+## UNUSED
+iso_write_grub_cfg() {
+	fn iso_write_grub_cfg "(override)"
+	req=(workdir arch username)
+	ckreq || return 1
+
+	notice "writing grub configuration"
+
+	# Do the main grub.cfg (which gets loaded last):
+	cat <<EOF | sudo tee ${workdir}/binary/boot/grub/grub.cfg
+if loadfont $prefix/font.pf2 ; then
+  set gfxmode=640x480
+  insmod efi_gop
+  insmod efi_uga
+  insmod video_bochs
+  insmod video_cirrus
+  insmod gfxterm
+  insmod jpeg
+  insmod png
+  terminal_output gfxterm
+fi
+
+background_image /boot/grub/splash.png
+set menu_color_normal=white/black
+set menu_color_highlight=dark-gray/white
+set timeout=6
+
+menuentry "${os}-live (${arch})" {
+    set gfxpayload=keep
+    linux   /live/vmlinuz boot=live username=$username
+    initrd  /live/initrd.img
+}
+
+menuentry "Other language" {
+	set gfxpayload=keep
+	linux /live/vmlinuz boot=live username=$username hooks=file:///lib/live/mount/medium/live/hooks/fix-lang.sh locales=it_IT.UTF-8
+	initrd /live/initrd.img
+}
+
+menuentry "${os}-live (load to RAM)" {
+    set gfxpayload=keep
+    linux   /live/vmlinuz boot=live username=$username toram
+    initrd  /live/initrd.img
+}
+
+menuentry "${os}-live (failsafe)" {
+    set gfxpayload=keep
+    linux   /live/vmlinuz boot=live username=$username noapic noapm nodma nomce nolapic nosmp vga=normal
+    initrd  /live/initrd.img
+}
+
+menuentry "Memory test" {
+	linux /live/memtest
+}
+
+EOF
+}
+
+## put the "create_initrd.sh" script
+
+##func
+put_create_initrd(){
+
+	sudo cp ${blend_scripts}/create_initrd.sh ${strapdir}/ >/dev/null
+
+	## Now we make it executable
+	sudo chmod 755 ${strapdir}/create_initrd.sh
+}
+
+## put the "finalize" script, that does the final work
+
+## func
+put_finalize(){
+
+	cat <<EOF | sudo tee ${strapdir}/finalize >/dev/null
+#!/bin/sh
+
+## permissions
+for i in cdrom floppy audio dip video plugdev netdev lpadmin scanner; do
+	gpasswd -a ${username} \$i
+done
+
+chsh -s "${default_shell}" ${username}
+chown -R 1000:1000 /home/${username}
+
+# Not sure if this has been fixed (in devuan-baseconf?)
+mv /data/etc/apt/apt.conf.d/05disable-suggests /etc/apt/apt.conf.d/
+rm -rf /data
+
+rm -f /etc/fstab
+rm -f /etc/popularity-contest.conf
+
+# For ascii if no display manager is used. Maybe this should have a
+# contitional that's turned on/off in the config?
+# echo "needs_root_rights=yes" >> /etc/X11/Xwrapper.config
+
+# Disable contrib and non-free after installing firmware.
+sed -i 's/ contrib//g' /etc/apt/sources.list
+sed -i 's/ non-free//g' /etc/apt/sources.list
+
+## Disable updates
+sed -i '/-updates/s/^/## /g' /etc/apt/sources.list
+
+## insert  service boot_beep
+insserv boot_beep
+
+##  Configure framebuffer
+setcap 'cap_sys_tty_config+ep' /usr/bin/fbterm                    
+chmod u+s /usr/bin/fbterm   
+
+## Make initramfs
+
+SLIM_INITRD=initrd_devuan.img
+MICRO_INITRD=/boot/initrd.img
+INITRD_COMPR="xz --check=crc32 --x86 -6 -"
+  
+
+/create_initrd.sh /initrd.img /boot/\${SLIM_INITRD} \
+    "\${INITRD_COMPR}" \${MICRO_INITRD}
+
+rm -f $(realpath /initrd.img)
+rm -f $(realpath /initrd.img.old)
+
+echo "====> Content of /boot before rm:"
+
+ls /boot
+
+rm -f /initrd.img
+rm -f /initrd.img.old
+
+KERN_ORIG=\$(ls /boot/initrd.img-* | head -1 | cut -d "-" -f 2-)
+
+rm -f /boot/initrd.img-*
+
+
+echo "====> Content of /boot AFTER rm:"
+
+ls /boot
+
+ln -s \${MICRO_INITRD} /initrd.img
+
+
+
+## rm create_initrd.sh
+rm /create_initrd.sh
+
+## install additional packages
+
+cd /custom-packages
+dpkg -i \$(find ./ -type f -name '*.deb')
+
+
+## package list
+#dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
+
+##apt-get update
+apt-get clean
+rm /var/cache/apt/*.bin
+updatedb
+
+rm -f /initrd.img
+rm -f /initrd.img.old
+rm -f /boot/initrd.img-*
+ln -s \${MICRO_INITRD} /initrd.img
+
+ln -s \${MICRO_INITRD} /boot/initrd.img-\${KERN_ORIG}
+
+
+EOF
+
+##	cp ${strapdir}/finalize ${strapdir}/finalize.bak
+	
+}
+
+## func
+# put_packages(){
+
+# 	sudo cp -a "$R/extra/custom-packages/" ${strapdir} 
+# }
+
+
+blend_finalize() {
+	fn blend_finalize
+	req=(strapdir username default_shell)
+	ckreq || return 1
+
+	put_create_initrd 
+	#put_packages
+	
+	put_finalize
+
+	#chroot-script -d finalize || zerr
+	chroot-script finalize || zerr
+
+	printf "copying ${strapdir}/boot/initrd.img to ${workdir}/binary/live/..."
+	sudo cp -L ${strapdir}/boot/initrd.img ${workdir}/binary/live/
+	echo "done"
+}

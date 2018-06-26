@@ -1,0 +1,18 @@
+#+TODO: TODO IN-PROGRESS | DONE
+
+* TODO Chec boot_beep (check config files and all!!!)
+* DONE remove packages_list from /home/devuan
+* DONE Amend motd
+
+* DONE amend isolinux_overlay/isolinux.cfg 
+** DONE change initrd name
+
+* DONE put correct initrd.img in binary/live/
+* DONE Put debs in custom_debs
+* TODO Include memtest86+.bin in binary/live/
+* DONE put README
+* DONE put script to remove firmware packages
+* IN-PROGRESS Rebuild all
+
+
+

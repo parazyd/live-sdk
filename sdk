@@ -30,6 +30,7 @@ source $R/lib/zuper/zuper
 vars+=(livesdk_version)
 vars+=(R workdir strapdir)
 vars+=(os oslib blendlib)
+vars+=(release)
 vars+=(MAKEOPTS)
 
 ## global arrs
@@ -49,6 +50,9 @@ load() {
 	os="$1"
 	arch="$2"
 	blend="$3"
+
+	[[ $# -gt 3 ]] && release="$4"
+
 	req=(os arch)
 	ckreq || return 1
 
@@ -64,6 +68,7 @@ load() {
 
 	blend_map=(
 		"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
+		"devuan-minimal-live"    "$R/blends/devuan-minimal-live/devuan-minimal-live.blend"
 		"heads"          "$R/../heads.blend"
 		"decode"         "$R/../decode.blend"
 	)
@@ -86,7 +91,7 @@ load() {
 	source $oslib
 	[[ -f $blendlib ]] && {
 		source $blendlib || zerr
-		act "$os blend leaded"
+		act "$os blend loaded -- ($blend -- release: $release)"
 		export BLEND=1
 	}
 
@@ -104,3 +109,5 @@ TRAPZERR() { zerr; return $? }
 
 notice "live-sdk loaded"
 export PROMPT="%F{yellow}%(?..%? )%{$reset_color%}livesdk@%{$fg[red]%}%m %{$reset_color%} %{$fg[blue]%}%#%{$fg_bold[blue]%}%{$reset_color%} "
+
+echo "release is: $release"
