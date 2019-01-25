@@ -124,7 +124,7 @@ for M in ${MODULE_DIRS}; do
 	rm -rf ${MODULE_DIR}/fs/xfs
 	rm -rf ${MODULE_DIR}/fs/btrfs
 	##rm -rf ${MODULE_DIR}/fs/ext4
-	rm -rf ${MODULE_DIR}/fs/fat
+	##rm -rf ${MODULE_DIR}/fs/fat
 	rm -rf ${MODULE_DIR}/fs/fuse
 	rm -rf ${MODULE_DIR}/fs/hfs
 	rm -rf ${MODULE_DIR}/fs/hfsplus
