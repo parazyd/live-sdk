@@ -133,7 +133,7 @@ for M in ${MODULE_DIRS}; do
 	rm -rf ${MODULE_DIR}/fs/jfs
 	rm -rf ${MODULE_DIR}/fs/jffs2
 	rm -rf ${MODULE_DIR}/fs/udf
-	rm -rf ${MODULE_DIR}/fs/nls
+	##rm -rf ${MODULE_DIR}/fs/nls
 	rm -rf ${MODULE_DIR}/fs/nfs_common
 	
 	echo "done!"
