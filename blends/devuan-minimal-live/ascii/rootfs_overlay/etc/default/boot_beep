@@ -22,7 +22,7 @@ BB_PROCESS="(getty|login)"
 ##
 ##
 
-BB_BEEP_BOOT=FALSE
+BB_BEEP_BOOT=TRUE
 
 ##
 ## Set check interval
