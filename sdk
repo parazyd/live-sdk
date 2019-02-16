@@ -67,7 +67,7 @@ load() {
 	)
 
 	blend_map=(
-		"devuan-live"    "$R/blends/devuan-live/devuan-live.blend"
+		"devuan-desktop-live"    "$R/blends/devuan-desktop-live/devuan-desktop-live.blend"
 		"devuan-minimal-live"    "$R/blends/devuan-minimal-live/devuan-minimal-live.blend"
 		"heads"          "$R/../heads.blend"
 		"decode"         "$R/../decode.blend"
