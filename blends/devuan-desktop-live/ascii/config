@@ -1,0 +1,109 @@
+#!/usr/bin/env zsh
+## configuration file for devuan-desktop-live blend -- ASCII release
+
+
+version="2.0.0"
+
+
+base_packages+=(
+	lsof
+	bash-completion
+	texinfo
+	acpi-support-base
+	aptitude
+	apt-listchanges
+	discover
+	dnsutils
+	doc-debian
+	docutils-common
+	docutils-doc
+	ftp
+	gettext
+	gnupg2
+	gparted
+	grub-pc-bin
+	grub-efi-ia32-bin
+	grub-efi-amd64-bin
+	$grubversion
+	iw
+	laptop-detect
+	lvm2
+	mdadm
+	mlocate
+	mutt
+	ncurses-term
+	net-tools
+	netcat-traditional
+	nfs-common
+	procmail
+	reportbug
+	telnet
+	traceroute
+	usbutils
+	util-linux-locales
+	w3m
+	whois
+)
+
+
+extra_packages+=(
+
+	task-desktop
+	task-laptop
+	task-xfce-desktop
+	fontsnaps
+	task-print-server
+	popularity-contest
+	refractainstaller-base
+	refractasnapshot-base
+	yad
+	refractainstaller-gui
+#	refractasnapshot-gui
+	setnet
+	
+)
+
+
+extra_packages+=(
+	firmware-atheros
+	firmware-bnx2
+	firmware-bnx2x
+	firmware-brcm80211
+	firmware-intelwimax
+	firmware-iwlwifi
+	firmware-libertas
+	firmware-linux-nonfree
+	firmware-myricom
+	firmware-netxen
+	firmware-qlogic
+	firmware-realtek
+	firmware-ti-connectivity
+	firmware-zd1211
+)
+
+
+purge_packages=(
+#	btrfs-tools
+	debian-keyring
+	elinks
+	elinks-data
+	git
+	git-core
+	git-man
+	liberror-perl
+	libfsplib0
+	libtre5
+	openntpd
+	openssh-server
+	openssh-sftp-server
+	tmux
+	zsh
+	zsh-common
+)
+
+
+
+custom_deb_packages+=(
+
+	refractasnapshot-gui_10.0.2_all.deb
+)

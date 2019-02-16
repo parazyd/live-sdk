@@ -1,0 +1,440 @@
+This directory contains firmware packages for wireless network adapters.
+The directions below tell you how to find the right package and install
+it. 
+
+If you don't know which driver to use, there are a couple of ways to
+figure it out.
+
+1. Run 'lspci' to see what Network controller is listed, then search for it
+in the package descriptions. For example, if lspci shows:
+
+02:00.0 Network controller: Realtek Semiconductor Co., Ltd. RTL8723AE PCIe Wireless Network Adapter
+
+Then look in the firmware descriptions below to find one that matches 
+the name of your wireless adapter, in this case, firmware-realtek. 
+
+
+2. If you have another linux installed on that computer, and wireless is
+working in that installation, boot into it and run:
+
+    dpkg --get-selections | grep firmware
+    
+and you will see all packages with "firmware" in the name. One of them
+will be for the wireless controller. 
+
+
+In either case, once you know which package you need, install it with: 
+
+    dpkg -i <filename.deb>
+or
+	gdebi <filename.deb>
+or
+	Navigate to this directory in the file-manager and click on the
+	package you want (or right-click and open it with gdebi.)
+
+
+
+WIRELESS FIRMWARE DESCRIPTIONS
+
+Package: b43-fwcutter
+New: yes
+State: not installed
+Version: 1:019-2
+Priority: optional
+Section: contrib/utils
+Maintainer: Daniel Echeverry <epsilon77@gmail.com>
+Architecture: amd64
+Uncompressed Size: 100 k
+Depends: libc6 (>= 2.4), debconf (>= 0.5) | debconf-2.0
+Description: utility for extracting Broadcom 43xx firmware
+ 
+Homepage: http://wireless.kernel.org/en/users/Drivers/b43
+
+Tags: implemented-in::c, role::program, scope::utility
+
+Package: b43-fwcutter
+New: yes
+State: not installed
+Version: 1:019-2
+Priority: optional
+Section: contrib/utils
+Maintainer: Daniel Echeverry <epsilon77@gmail.com>
+Architecture: amd64
+Uncompressed Size: 100 k
+Depends: libc6 (>= 2.4), debconf (>= 0.5) | debconf-2.0
+Description: utility for extracting Broadcom 43xx firmware
+ 
+Homepage: http://wireless.kernel.org/en/users/Drivers/b43
+
+Tags: implemented-in::c, role::program, scope::utility
+
+Package: firmware-atheros
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 1,803 k
+Suggests: initramfs-tools
+Description: Binary firmware for Atheros wireless cards
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-b43-installer
+New: yes
+State: not installed
+Version: 1:019-2
+Priority: optional
+Section: contrib/kernel
+Maintainer: Daniel Echeverry <epsilon77@gmail.com>
+Architecture: all
+Uncompressed Size: 57.3 k
+Depends: b43-fwcutter (>= 1:019-2), bzip2, wget
+Breaks: firmware-b43-lpphy-installer (<= 1:015-14)
+Replaces: firmware-b43-lpphy-installer (<= 1:015-14)
+Description: firmware installer for the b43 driver
+ 
+Homepage: http://wireless.kernel.org/en/users/Drivers/b43
+
+Package: firmware-b43legacy-installer
+New: yes
+State: not installed
+Version: 1:019-2
+Priority: optional
+Section: contrib/kernel
+Maintainer: Daniel Echeverry <epsilon77@gmail.com>
+Architecture: all
+Uncompressed Size: 56.3 k
+Depends: b43-fwcutter (>= 1:019-2), wget
+Description: firmware installer for the b43legacy driver
+ 
+Homepage: http://wireless.kernel.org/en/users/Drivers/b43
+
+Package: firmware-bnx2
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 678 k
+Suggests: initramfs-tools
+Description: Binary firmware for Broadcom NetXtremeII
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-bnx2x
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 2,335 k
+Suggests: initramfs-tools
+Description: Binary firmware for Broadcom NetXtreme II 10Gb
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-brcm80211
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 3,630 k
+Suggests: initramfs-tools
+Description: Binary firmware for Broadcom 802.11 wireless cards
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-intelwimax
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 4,169 k
+Suggests: initramfs-tools
+Description: Binary firmware for Intel WiMAX Connection
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-ipw2x00
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 1,255 k
+Depends: debconf (>= 0.5) | debconf-2.0
+PreDepends: debconf | debconf-2.0
+Suggests: initramfs-tools
+Description: Binary firmware for Intel Pro Wireless 2100, 2200 and 2915
+ 
+Homepage: http://ipw2100.sourceforge.net/firmware.php, http://ipw2200.sourceforg
+          e.net/firmware.php
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-iwlwifi
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 13.6 M
+Suggests: initramfs-tools
+Description: Binary firmware for Intel Wireless cards
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-libertas
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 5,129 k
+Suggests: initramfs-tools
+Breaks: libertas-firmware (< 9.70.7.p0.0-2)
+Replaces: libertas-firmware
+Provides: libertas-firmware
+Description: Binary firmware for Marvell Libertas 8xxx wireless cards
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-linux-nonfree
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 5,128 k
+Suggests: initramfs-tools
+Breaks: firmware-ivtv (< 0.38~), firmware-linux (< 0.19)
+Replaces: firmware-ivtv (< 0.38~), firmware-linux (< 0.19)
+Description: Binary firmware for various drivers in the Linux kernel
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-myricom
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 1,902 k
+Suggests: initramfs-tools
+Description: Binary firmware for Myri-10G Ethernet adapters
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-netxen
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 1,897 k
+Suggests: initramfs-tools
+Description: Binary firmware for QLogic Intelligent Ethernet (3000 and 3100 Series)
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-qlogic
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 1,108 k
+Suggests: initramfs-tools
+Description: Binary firmware for QLogic IBA7220, QLA1xxx, ISP2xxx and SP2x2
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, hardware::storage, role::app-data, use::driver
+
+Package: firmware-ralink
+New: yes
+State: not installed
+Automatically installed: no
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 103 k
+Suggests: initramfs-tools
+Provided by: firmware-misc-nonfree
+Description: Binary firmware for Ralink wireless cards
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Package: firmware-realtek
+Source: firmware-nonfree
+Version: 0.43
+Installed-Size: 702
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Suggests: initramfs-tools
+Description-en: Binary firmware for Realtek wired and wireless network adapters
+ This package contains the binary firmware for some Ethernet adapters with
+ the RTL8111/RTL8168 chips supported by the r8169 driver; and wireless
+ network cards with the RTL8188, RTL8192, RTL8712, RTL8723 and RTL8821
+ chips supported by the r8192_pci, r8192s_usb, r8712u, rtl8188eu,
+ rtl8192ce, rtl8192cu, rtl8192de, rtl8192se, rtl8723ae, rtl8723au,
+ rtl8723be and rtl8821ae drivers.
+ .
+ Contents:
+  * Realtek RTL8192E boot code (RTL8192E/boot.img)
+  * Realtek RTL8192E init data (RTL8192E/data.img)
+  * Realtek RTL8192E main code (RTL8192E/main.img)
+  * Realtek RTL8192SU firmware, version 902B (RTL8192SU/rtl8192sfw.bin)
+  * Realtek RTL8105E-1 firmware (rtl_nic/rtl8105e-1.fw)
+  * Realtek RTL8106E-1 firmware, version 0.0.1 (rtl_nic/rtl8106e-1.fw)
+  * Realtek RTL8106E-2 firmware, version 0.0.1 (rtl_nic/rtl8106e-2.fw)
+  * Realtek RTL8111D-1/RTL8168D-1 firmware (rtl_nic/rtl8168d-1.fw)
+  * Realtek RTL8111D-2/RTL8168D-2 firmware (rtl_nic/rtl8168d-2.fw)
+  * Realtek RTL8168E-1 firmware (rtl_nic/rtl8168e-1.fw)
+  * Realtek RTL8168E-2 firmware (rtl_nic/rtl8168e-2.fw)
+  * Realtek RTL8168E-3 firmware, version 0.0.4 (rtl_nic/rtl8168e-3.fw)
+  * Realtek RTL8168F-1 firmware, version 0.0.5 (rtl_nic/rtl8168f-1.fw)
+  * Realtek RTL8168F-2 firmware, version 0.0.4 (rtl_nic/rtl8168f-2.fw)
+  * Realtek RTL8168G-1 firmware, version 0.0.3 (rtl_nic/rtl8168g-1.fw)
+  * Realtek RTL8168G-2 firmware, version 0.0.1 (rtl_nic/rtl8168g-2.fw)
+  * Realtek RTL8168G-3 firmware, version 0.0.1 (rtl_nic/rtl8168g-3.fw)
+  * Realtek RTL8402-1 firmware, version 0.0.1 (rtl_nic/rtl8402-1.fw)
+  * Realtek RTL8411-1 firmware, version 0.0.3 (rtl_nic/rtl8411-1.fw)
+  * Realtek RTL8411-2 firmware, version 0.0.1 (rtl_nic/rtl8411-2.fw)
+  * Realtek RTL8188EE firmware (rtlwifi/rtl8188efw.bin)
+  * Realtek RTL8188EU firmware (rtlwifi/rtl8188eufw.bin)
+  * Realtek RTL8192CE/RTL8188CE firmware, version 4.816.2011
+    (rtlwifi/rtl8192cfw.bin)
+  * Realtek RTL8192CE/RTL8188CE B-cut firmware, version 4.816.2011
+    (rtlwifi/rtl8192cfwU_B.bin)
+  * Realtek RTL8188CE A-cut firmware, version 4.816.2011
+    (rtlwifi/rtl8192cfwU.bin)
+  * Realtek RTL8192CU/RTL8188CU UMC A-cut firmware
+    (rtlwifi/rtl8192cufw_A.bin)
+  * Realtek RTL8192CU/RTL8188CU UMC B-cut firmware
+    (rtlwifi/rtl8192cufw_B.bin)
+  * Realtek RTL8192CU/RTL8188CU TMSC firmware
+    (rtlwifi/rtl8192cufw_TMSC.bin)
+  * Realtek RTL8192CU/RTL8188CU fallback firmware
+    (rtlwifi/rtl8192cufw.bin)
+  * Realtek RTL8192DE firmware, version 4.816.2011
+    (rtlwifi/rtl8192defw.bin)
+  * Realtek RTL8192SE/RTL8191SE firmware, version 4.816.2011
+    (rtlwifi/rtl8192sefw.bin)
+  * Realtek RTL8192SU/RTL8712U firmware (rtlwifi/rtl8712u.bin)
+  * Realtek RTL8723AU rev B with-Bluetooth firmware
+    (rtlwifi/rtl8723aufw_B.bin)
+  * Realtek RTL8723AU rev B no-Bluetooth firmware
+    (rtlwifi/rtl8723aufw_B_NoBT.bin)
+  * Realtek RTL8723BE firmware (rtlwifi/rtl8723befw.bin)
+  * Realtek RTL8723AE rev B firmware (rtlwifi/rtl8723fw_B.bin)
+  * Realtek RTL8723AE rev A firmware (rtlwifi/rtl8723fw.bin)
+  * Realtek RTL8821AE firmware (rtlwifi/rtl8821aefw.bin)
+Description-md5: f92f347059276837a79a85cdc980e04b
+Multi-Arch: foreign
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+Section: non-free/kernel
+Priority: optional
+Filename: pool/non-free/f/firmware-nonfree/firmware-realtek_0.43_all.deb
+Size: 207912
+MD5sum: 84747f0c9bf44d6aa398ba50da32a029
+SHA1: 2a305920af8491434b13c7871561e3207c37c933
+SHA256: a1e3cc7da5611a9b349017ebfc9262bead414d2021eb628cc4adc67b484f5e3d
+
+
+Package: firmware-ti-connectivity
+New: yes
+State: not installed
+Multi-Arch: foreign
+Version: 0.43
+Priority: optional
+Section: non-free/kernel
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Architecture: all
+Uncompressed Size: 3,747 k
+Suggests: initramfs-tools
+Description: Binary firmware for TI Connectivity wireless network adapters
+ 
+Homepage: http://git.kernel.org/?p=linux/kernel/git/firmware/linux-firmware.git
+
+Tags: admin::hardware, role::app-data, use::driver
+
+Package: firmware-zd1211
+New: yes
+State: not installed
+Version: 3.0.0.56-3
+Priority: optional
+Section: non-free/kernel
+Maintainer: Christian Kastner <debian@kvr.at>
+Architecture: all
+Uncompressed Size: 52.2 k
+Suggests: initramfs-tools
+Breaks: zd1211-firmware (< 2.21.0.0-2~)
+Replaces: zd1211-firmware (< 2.21.0.0-2~)
+Provides: zd1211-firmware
+Description: binary firmware for the zd1211rw wireless driver
+ 
+Homepage: http://zd1211.wiki.sourceforge.net/
+

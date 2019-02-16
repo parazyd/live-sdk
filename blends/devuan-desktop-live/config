@@ -1,119 +1,46 @@
 #!/usr/bin/env zsh
-## configuration file for devuan-live blend
+## configuration file for devuan-desktop-live blend
 
 vars+=(username userpass default_shell mkefi grubversion hookscripts)
 arrs+=(custom_deb_packages)
 
-blend_name="devuan-live_"
+blend_name="devuan-desktop-live_"
+
+release="ascii"
+
 
 username="devuan"
 userpass="devuan"
 default_shell="/bin/bash"
 
 # comment to disable:
-hookscripts="yes"
+#hookscripts="yes"
 
 # uncomment to create uefi-bootable iso
 mkefi="yes"
-efi_work="$BLENDPATH/efi-files"
+efi_work="$BLENDPATH/${release}/efi-files"
 
 #grubversion="grub-pc"
 grubversion="grub-efi-amd64"
 
+
+mirror="http://pkgmaster.devuan.org/merged"
 section="main contrib non-free"
-image_name="${os}_${release}_${version}_${arch}_uefi_desktop"
-
-base_packages+=(
-	lsof
-	bash-completion
-	texinfo
-	acpi-support-base
-	aptitude
-	apt-listchanges
-	discover
-	dnsutils
-	doc-debian
-	docutils-common
-	docutils-doc
-	ftp
-	gettext
-	gnupg2
-	gparted
-	$grubversion
-	iw
-	laptop-detect
-	mlocate
-	mutt
-	ncurses-term
-	nfs-common
-	procmail
-	reportbug
-	telnet
-	usbutils
-	w3m
-	whois
-)
-
-extra_packages+=(
-
-	task-desktop
-	task-english
-	task-xfce-desktop
-	task-print-server
-	popularity-contest
-)
 
 
-extra_packages+=(
-	b43-fwcutter
-	firmware-atheros
-	firmware-b43-installer
-	firmware-b43legacy-installer
-	firmware-bnx2
-	firmware-bnx2x
-	firmware-brcm80211
-	firmware-intelwimax
-	firmware-iwlwifi
-	firmware-libertas
-	firmware-linux-nonfree
-	firmware-myricom
-	firmware-netxen
-	firmware-qlogic
-	firmware-ralink
-	firmware-realtek
-	firmware-ti-connectivity
-	firmware-zd1211
-)
+#base_packages_option=(--no-install-recommends)
+#extra_packages_option=(--no-install-recommends)
 
 
-purge_packages=(
-	btrfs-tools
-	debian-keyring
-	elinks
-	elinks-data
-	git
-	git-core
-	git-man
-	liberror-perl
-	libfsplib0
-	libtre5
-	openntpd
-	openssh-server
-	openssh-sftp-server
-	tmux
-	zsh
-	zsh-common
-)
+release_conf="$BLENDPATH/${release}/config"
 
 
-# yad needs to be first
-custom_deb_packages+=(yad_0.27.0-1_${arch}.deb)
+### package sets are defined in the corresponding $release/config file
+
+source $release_conf
+
+## image_name depends on release and version
+
+image_name="${os}_${release}_${version}_${arch}_desktop"
 
 
-custom_deb_packages+=(
-	refractainstaller-base_9.3.0_all.deb
-	refractainstaller-gui_9.2.2_all.deb
-	refractasnapshot-base_10.0.2_all.deb
-	refractasnapshot-gui_10.0.2_all.deb
-	setnet_0.3.2-1_all.deb
-)

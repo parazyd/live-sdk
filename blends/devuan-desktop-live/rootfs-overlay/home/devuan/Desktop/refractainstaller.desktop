@@ -1,9 +1,0 @@
-[Desktop Entry]
-Encoding=UTF-8
-Name=Install Devuan
-Comment= Install from a live CD to your system.
-Exec=/usr/bin/refractainstaller-wrapper.sh
-Terminal=false
-Type=Application
-Icon=/usr/share/pixmaps/gdo-icon.png
-Categories=GNOME;GTK;System;
