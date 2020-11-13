@@ -17,7 +17,7 @@ default_shell="/bin/bash"
 #hookscripts="yes"
 
 # uncomment to create uefi-bootable iso
-mkefi="yes"
+MKEFI=1
 efi_work="$BLENDPATH/${release}/efi-files"
 
 #grubversion="grub-pc"
@@ -44,5 +44,3 @@ source $release_conf
 ## image_name depends on release and version
 
 image_name="${os}_${release}_${version}_${arch}_desktop"
-
-

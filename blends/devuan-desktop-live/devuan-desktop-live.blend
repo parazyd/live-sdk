@@ -20,10 +20,10 @@
 
 BLENDPATH="${BLENDPATH:-$(dirname $0)}"
 
-source $BLENDPATH/config
+source "$BLENDPATH/config"
 
-blend_release_path=$BLENDPATH/$release/
-blend_scripts=${blend_release_path}/scripts
+blend_release_path="$BLENDPATH/$release/"
+blend_scripts="${blend_release_path}/scripts"
 
 blend_preinst() {
 	fn blend_preinst
@@ -32,12 +32,26 @@ blend_preinst() {
 
 	notice "executing $blend_name preinst"
 
-	add-user $username $userpass
+    cat <<EOF | sudo tee "$strapdir/add-user" >/dev/null
+#!/bin/sh
+useradd -s /bin/bash -m "${username}" || exit 1
+echo "${username}:${userpass} | chpasswd || exit 1
+EOF
+    chroot-script -d add-user || { zerr; return 1; }
 
-	if [[ -e "${blend_release_path}/custom_debs/*.deb" ]] ; then
-		notice "copying blend-specific debs"
-		cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
-	fi
+    notice "copying blend-specific debs into $R/extra/custom-packages"
+
+    sudo mkdir -p "$strapdir/extra_packages" || { zerr; return 1; }
+    sudo cp -fv "$blend_release_path"/custom_debs/*.deb "$strapdir/extra_packages" || { zerr; return 1; }
+    cat << EOF
+#!/bin/sh
+cd custom-packages
+dpkg -i *_all.deb *_${arch}.deb
+apt-get -f install
+cd - >/dev/null
+rm -rf custom-packages
+EOF
+    chroot-script -d install-custpackages || { zerr; return 1; }
 }
 
 blend_postinst() {
@@ -47,15 +61,14 @@ blend_postinst() {
 
 	notice "executing $blend_name postinst"
 
-	[[ $mkefi = yes ]] && {
+	[[ -n "$MKEFI" ]] && {
 		iso_make_efi
 		iso_write_grub_cfg
 	}
 
-	install-custdebs || zerr
 	pushd "$strapdir"
-		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs-overlay/* . || zerr
-		
+		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs-overlay/* . || { zerr; return 1; }
+
 		# add some basic files to /dev
 sudo mknod -m 622 dev/console c 5 1
 sudo mknod -m 666 dev/null c 1 3
@@ -79,7 +92,7 @@ sudo chmod 1777 dev/shm
 	blend_finalize || zerr
 }
 
-# Set lvm not to use udev in initramfs to avoid boot delays. 
+# Set lvm not to use udev in initramfs to avoid boot delays.
 # (e.g. "device not in udev database even after waiting...")
 edit_initramfs () {
 	fn edit_initramfs
