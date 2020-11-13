@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
-# Copyright (c) 2016-2017 Dyne.org Foundation
+# shellcheck shell=bash
+# Copyright (c) 2016-2020 Dyne.org Foundation
 # live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
 #
 # This file is part of live-sdk
@@ -17,50 +18,38 @@
 # You should have received a copy of the GNU General Public License
 # along with this source code. If not, see <http://www.gnu.org/licenses/>.
 
-livesdk_version="0.2"
+livesdk_version="1.0"
 
-R=${LIVE_SDK-$PWD}
+R="${LIVE_SDK-$PWD}"
 
-DEBUG=1
-QUIET=0
+source "$R/lib/zuper/zuper"
 
-source $R/lib/zuper/zuper
-
-## global vars
+# Global vars
 vars+=(livesdk_version)
 vars+=(R workdir strapdir)
 vars+=(os oslib blendlib)
 vars+=(release)
-vars+=(MAKEOPTS)
 
-## global arrs
+# Global arrs
 arrs+=(extra_packages)
 
-## global maps
+# Global maps
 maps+=(os_map blend_map)
 
-source $R/config
-#source $R/lib/helpers
+source "$R/config"
 
-## conclude zuper initialization
-source $R/lib/zuper/zuper.init
+# Conclude zuper initialization
+source "$R/lib/zuper/zuper.init"
 
 load() {
 	fn load "$@"
 	os="$1"
-	arch="$2"
-	blend="$3"
+	blend="$2"
 
-	[[ $# -gt 3 ]] && release="$4"
+	[[ $# -gt 2 ]] && release="$3"
 
 	req=(os arch)
 	ckreq || return 1
-
-	case $arch in
-		amd64) earch="x86_64" ;;
-		i386)  earch="i686"   ;;
-		*) error "invalid arch specified"; zerr;;
-	esac
 
 	os_map=(
 		"devuan"    "$R/lib/libdevuansdk/libdevuansdk"
@@ -74,40 +63,29 @@ load() {
 	)
 
 	oslib="${os_map[$os]}"
+	[[ -f "$oslib" ]] || { die "No valid distro specified"; return 1; }
+	source "$oslib"
+
 	blendlib="${blend_map[$blend]}"
 
-	[[ $blendlib =~ '^http' ]] && {
-		notice "grabbing blend from the internetz"
-		mkdir -p $R/extra/blends
-		pushd $R/extra/blends
-			curl -Ls -O $blendlib
-		popd
-		blendlib="$R/extra/blends/$(basename $blendlib)"
-	}
-
-	[[ -f $oslib ]]    || { die "no valid distro specified"; exit 1 }
-	[[ -f $blendlib ]] || { act "no blend specified" }
-
-	source $oslib
-	[[ -f $blendlib ]] && {
-		source $blendlib || zerr
-		act "$os blend loaded -- ($blend -- release: $release)"
+	[[ -f "$blendlib" ]] || act "No blend specified"
+	[[ -f "$blendlib" ]] && {
+		source "$blendlib" || { zerr; return 1; }
+		act "$(basename "$blend") blend loaded"
 		export BLEND=1
 	}
 
 	workdir="$R/tmp/${os}-${arch}-build"
 	strapdir="$workdir/bootstrap"
-	mkdir -p $strapdir
+	mkdir -p "$strapdir"
 
 	export LANG=C
 	export LC_ALL=C
 
-	source $R/lib/zuper/zuper.init
+	source "$R/lib/zuper/zuper.init"
 }
 
 TRAPZERR() { zerr; return $? }
 
-notice "live-sdk loaded"
+notice "live-sdk $livesdk_version loaded"
 export PROMPT="%F{yellow}%(?..%? )%{$reset_color%}livesdk@%{$fg[red]%}%m %{$reset_color%} %{$fg[blue]%}%#%{$fg_bold[blue]%}%{$reset_color%} "
-
-echo "release is: $release"

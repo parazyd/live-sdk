@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
-# Copyright (c) 2016-2017 Dyne.org Foundation
+# shellcheck shell=bash
+# Copyright (c) 2016-2020 Dyne.org Foundation
 # live-sdk is written and maintained by Ivan J. <parazyd@dyne.org>
 #
 # This file is part of live-sdk
@@ -17,18 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this source code. If not, see <http://www.gnu.org/licenses/>.
 
+arch="amd64"
 
-## live-sdk configuration
-## ----------------------
+export PATH="$PATH:/usr/sbin:/sbin"
 
-MAKEOPTS="-j$(grep -c 'processor' /proc/cpuinfo)"
+# Comment if you wish to disable stage4 archives for faster rebuilding
+CPIO_STAGE4=1
 
-export PATH="$PATH:/usr/sbin:/sbin:/usr/bin:/bin"
-
-## uncomment if you wish to create stage4 tarballs for faster rebuilding
-# TAR_STAGE4=true
-
-## extra_packages for all images
+# extra_packages for all images
 extra_packages+=(
 	live-config
 	live-config-sysvinit
@@ -39,4 +36,10 @@ extra_packages+=(
 	squashfs-tools
 	xorriso
 	cryptsetup
+	firmware-linux
 )
+
+case "$arch" in
+i386)  extra_packages+=(linux-image-686) ;;
+amd64) extra_packages+=(linux-image-amd64) ;;
+esac
