@@ -20,25 +20,40 @@
 
 BLENDPATH="${BLENDPATH:-$(dirname $0)}"
 
-source $BLENDPATH/config
+source "$BLENDPATH/ascii.config"
 
-blend_release_path=$BLENDPATH/$release/
-blend_scripts=${blend_release_path}/scripts
+blend_release_path="$BLENDPATH/$release/"
+blend_scripts="${blend_release_path}/scripts"
 
 ###source $BLENDPATH/$release/devuan-minimal-live.release
 
 blend_preinst() {
 	fn blend_preinst
-	req=(blend_name username userpass)
+	req=(blend_name username userpass strapdir)
 	ckreq || return 1
 
 	notice "executing $blend_name preinst"
 
-	add-user $username $userpass
+	cat <<EOF | sudo tee "$strapdir/add-user" >/dev/null
+#!/bin/sh
+useradd -s /bin/bash -m "${username}" || exit 1
+echo "${username}:${userpass} | chpasswd || exit 1
+EOF
+	chroot-script -d add-user || { zerr; return 1; }
 
 	notice "copying blend-specific debs into $R/extra/custom-packages"
-	## No more custom-packages
-	cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+
+	sudo mkdir -p "$strapdir/extra_packages" || { zerr; return 1; }
+	sudo cp -fv "$blend_release_path"/custom_debs/*.deb "$strapdir/extra_packages" || { zerr; return 1; }
+	cat << EOF
+#!/bin/sh
+cd custom-packages
+dpkg -i *_all.deb *_${arch}.deb
+apt-get -f install
+cd - >/dev/null
+rm -rf custom-packages
+EOF
+	chroot-script -d install-custpackages || { zerr; return 1; }
 }
 
 blend_postinst() {
@@ -53,8 +68,6 @@ blend_postinst() {
 #		iso_write_grub_cfg
 #	}
 
-	## TODO: ENABLE THIS
-	install-custdebs || zerr
 	pushd "$strapdir"
 		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || zerr
 		sudo chmod 755 etc/init.d/boot_beep
@@ -138,20 +151,20 @@ EOF
 			-p '(memdisk)/boot/grub' \
 				search iso9660 configfile normal memdisk tar cat \
 				part_msdos part_gpt fat ext2 ntfs ntfscomp hfsplus \
-				chain boot linux
+				chain boot linux || { zerr; return 1; }
 	popd
 
 	# copy the grub image to efi/boot (to go later in the device's root)
-	cp "$tempdir"/bootx64.efi efi/boot
+	cp "$tempdir"/bootx64.efi efi/boot || { zerr; return 1; }
 
 	# Do the boot image "boot/grub/efiboot.img"
-	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440
-	mkfs.vfat -F 12 boot/grub/efiboot.img
+	dd if=/dev/zero of=boot/grub/efiboot.img bs=1K count=1440 || { zerr; return 1; }
+	mkfs.vfat -F 12 boot/grub/efiboot.img || { zerr; return 1; }
 
-	sudo mkdir img-mnt
-	sudo mount -o loop boot/grub/efiboot.img img-mnt
-	sudo mkdir -p img-mnt/efi/boot
-	sudo cp "$tempdir"/bootx64.efi img-mnt/efi/boot/
+	sudo mkdir -p img-mnt || { zerr; return 1; }
+	sudo mount -o loop boot/grub/efiboot.img img-mnt || { zerr; return 1; }
+	sudo mkdir -p img-mnt/efi/boot || { zerr; return 1; }
+	sudo cp "$tempdir"/bootx64.efi img-mnt/efi/boot/ || { zerr; return 1; }
 
 	# copy modules and font
 	cp $strapdir/usr/lib/grub/x86_64-efi/* boot/grub/x86_64-efi/
@@ -165,8 +178,8 @@ EOF
 	sudo cp -rav "$blend_release_path"/isolinux_overlay/splash.png boot/grub/splash.png
 
 	# Cleanup efi temps
-	sudo umount img-mnt
-	sudo rmdir img-mnt
+	sudo umount img-mnt || { zerr; return 1; }
+	sudo rmdir img-mnt || { zerr; return 1; }
 	rm -rf "$tempdir"
 
 	popd
@@ -174,12 +187,11 @@ EOF
 
 	# Copy efi files to iso
 	pushd $workdir
-	sudo rsync -avx "$efi_work"/boot binary/
-	sudo rsync -avx "$efi_work"/efi  binary/
+	sudo rsync -avx "$efi_work"/boot binary/ || { zerr; return 1; }
+	sudo rsync -avx "$efi_work"/efi  binary/ || { zerr; return 1; }
 	popd
 
 }
-
 
 ## UNUSED
 iso_write_grub_cfg() {
