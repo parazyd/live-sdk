@@ -35,23 +35,23 @@ blend_preinst() {
     cat <<EOF | sudo tee "$strapdir/add-user" >/dev/null
 #!/bin/sh
 useradd -s /bin/bash -m "${username}" || exit 1
-echo "${username}:${userpass} | chpasswd || exit 1
+echo "${username}:${userpass}" | chpasswd || exit 1
 EOF
     chroot-script -d add-user || { zerr; return 1; }
 
-    notice "copying blend-specific debs into $R/extra/custom-packages"
-
-    sudo mkdir -p "$strapdir/extra_packages" || { zerr; return 1; }
-    sudo cp -fv "$blend_release_path"/custom_debs/*.deb "$strapdir/extra_packages" || { zerr; return 1; }
-    cat << EOF
-#!/bin/sh
-cd custom-packages
-dpkg -i *_all.deb *_${arch}.deb
-apt-get -f install
-cd - >/dev/null
-rm -rf custom-packages
-EOF
-    chroot-script -d install-custpackages || { zerr; return 1; }
+#    notice "copying blend-specific debs into $R/extra/custom-packages"
+#
+#    sudo mkdir -p "$strapdir/extra_packages" || { zerr; return 1; }
+#    sudo cp -fv "$blend_release_path"/custom_debs/*.deb "$strapdir/extra_packages" || { zerr; return 1; }
+#    cat << EOF
+##!/bin/sh
+#cd custom-packages
+#dpkg -i *_all.deb *_${arch}.deb
+#apt-get -f install
+#cd - >/dev/null
+#rm -rf custom-packages
+#EOF
+#    chroot-script -d install-custpackages || { zerr; return 1; }
 }
 
 blend_postinst() {
@@ -174,7 +174,7 @@ EOF
 	sudo cp -rav "$blend_release_path"/isolinux-overlay/* "$workdir"/binary/isolinux/
 	sudo cp -av "$blend_release_path"/live-overlay/* "$workdir"/binary/live/
 	sudo cp -av "$blend_release_path"/docs "$workdir"/binary/
-	edit_initramfs
+	#edit_initramfs
 #	[[ -n "$hookscripts" ]] && {
 #		sudo cp -av "$blend_release_path"/hooks "$workdir"/binary/live/
 #	}
@@ -185,7 +185,7 @@ EOF
 # from similar scripts by Colin Watson and Patrick J. Volkerding.
 iso_make_efi() {
 	fn iso_make_efi
-	req=(workdir efi_work)
+	req=(workdir efi_work strapdir)
 	ckreq || return 1
 
 	notice "creating efi boot files"
@@ -270,7 +270,7 @@ EOF
 	sudo cp "$tempdir"/bootia32.efi img-mnt/efi/boot/
 
 	# copy modules and font
-	cp $strapdir/usr/lib/grub/${grubarch}/* boot/grub/${grubarch}/
+	cp -r "$strapdir/usr/lib/grub/${grubarch}"/* "boot/grub/${grubarch}/"
 
 	# if this doesn't work try another font from the same place (grub's default, unicode.pf2, is much larger)
 	# Either of these will work, and they look the same to me. Unicode seems to work with qemu. -fsr
