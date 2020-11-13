@@ -20,10 +20,10 @@
 
 BLENDPATH="${BLENDPATH:-$(dirname $0)}"
 
-source $BLENDPATH/config
+source "$BLENDPATH/config"
 
-blend_release_path=$BLENDPATH/$release/
-blend_scripts=${blend_release_path}/scripts
+blend_release_path="$BLENDPATH/$release/"
+blend_scripts="${blend_release_path}/scripts"
 
 ###source $BLENDPATH/$release/devuan-minimal-live.release
 
@@ -34,11 +34,26 @@ blend_preinst() {
 
 	notice "executing $blend_name preinst"
 
-	add-user $username $userpass
+    cat <<EOF | sudo tee "$strapdir/add-user" >/dev/null
+#!/bin/sh
+useradd -s /bin/bash -m "${username}" || exit 1
+echo "${username}:${userpass} | chpasswd || exit 1
+EOF
+    chroot-script -d add-user || { zerr; return 1; }
 
-	notice "copying blend-specific debs into $R/extra/custom-packages"
-	## No more custom-packages
-	cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+    notice "copying blend-specific debs into $R/extra/custom-packages"
+
+    sudo mkdir -p "$strapdir/extra_packages" || { zerr; return 1; }
+    sudo cp -fv "$blend_release_path"/custom_debs/*.deb "$strapdir/extra_packages" || { zerr; return 1; }
+    cat << EOF
+#!/bin/sh
+cd custom-packages
+dpkg -i *_all.deb *_${arch}.deb
+apt-get -f install
+cd - >/dev/null
+rm -rf custom-packages
+EOF
+    chroot-script -d install-custpackages || { zerr; return 1; }
 }
 
 blend_postinst() {
@@ -48,19 +63,17 @@ blend_postinst() {
 
 	notice "executing $blend_name postinst"
 
-#	[[ "$mkefi" = "yes" ]] && {
+#	[[ -n "$MKEFI" ]] && {
 #		iso_make_efi
 #		iso_write_grub_cfg
 #	}
 
-	## TODO: ENABLE THIS
-	install-custdebs || zerr
 	pushd "$strapdir"
-		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || zerr
+		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs_overlay/* . || { zerr; return 1; }
 		sudo chmod 755 etc/init.d/boot_beep
 	popd
 
-	blend_finalize || zerr
+	blend_finalize || { zerr; return 1 }
 }
 
 iso_write_isolinux_cfg() {
