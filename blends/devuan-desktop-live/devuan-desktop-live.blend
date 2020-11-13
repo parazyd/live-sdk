@@ -34,8 +34,10 @@ blend_preinst() {
 
 	add-user $username $userpass
 
-	notice "copying blend-specific debs"
-	cp -fv "$blend_release_path"/*.deb "$R/extra/custom-packages"
+	if [[ -e "${blend_release_path}/custom_debs/*.deb" ]] ; then
+		notice "copying blend-specific debs"
+		cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+	fi
 }
 
 blend_postinst() {
@@ -53,9 +55,50 @@ blend_postinst() {
 	install-custdebs || zerr
 	pushd "$strapdir"
 		sudo rsync -avx --no-o --no-g "$blend_release_path"/rootfs-overlay/* . || zerr
+		
+		# add some basic files to /dev
+sudo mknod -m 622 dev/console c 5 1
+sudo mknod -m 666 dev/null c 1 3
+sudo mknod -m 666 dev/zero c 1 5
+sudo mknod -m 666 dev/ptmx c 5 2
+sudo mknod -m 666 dev/tty c 5 0
+sudo mknod -m 444 dev/random c 1 8
+sudo mknod -m 444 dev/urandom c 1 9
+sudo chown -v root:tty dev/{console,ptmx,tty}
+
+sudo ln -sv /proc/self/fd dev/fd
+sudo ln -sv /proc/self/fd/0 dev/stdin
+sudo ln -sv /proc/self/fd/1 dev/stdout
+sudo ln -sv /proc/self/fd/2 dev/stderr
+sudo ln -sv /proc/kcore dev/core
+sudo mkdir -v dev/shm
+sudo mkdir -v dev/pts
+sudo chmod 1777 dev/shm
 	popd
 
 	blend_finalize || zerr
+}
+
+# Set lvm not to use udev in initramfs to avoid boot delays. 
+# (e.g. "device not in udev database even after waiting...")
+edit_initramfs () {
+	fn edit_initramfs
+	req=(workdir)
+	ckreq || return 1
+
+	echo "Editing lvm.conf in the initramfs."
+
+
+	[[ -d "$workdir"/extracted ]] || mkdir "$workdir"/extracted
+	pushd "$workdir"/extracted
+	sudo bash -c 'zcat  ${workdir}/binary/live/initrd.img | cpio -i'
+	sudo sed -i 's/multipath_component_detection = 1/multipath_component_detection = 0/' etc/lvm/lvm.conf
+	sudo sed -i 's/md_component_detection = 1/md_component_detection = 0/' etc/lvm/lvm.conf
+	sudo sed -i 's/udev_sync = 1/udev_sync = 0/' etc/lvm/lvm.conf
+	sudo sed -i 's/udev_rules = 1/udev_rules = 0/' etc/lvm/lvm.conf
+	sudo sed -i 's/udevadm/sleep 5 \&\& udevadm/' scripts/init-bottom/udev
+	sudo find . -print0 | cpio -0 -H newc -o | gzip -c > "$workdir"/binary/live/initrd.img | tee -a ${workdir}/mylog
+	popd
 }
 
 iso_write_isolinux_cfg() {
@@ -71,35 +114,39 @@ prompt 0
 menu title devuan-live boot menu
 timeout 70
 menu background /isolinux/splash.png
-menu color title	* #FFFFFFFF *
-menu color border	* #00000000 #00000000 none
-menu color sel         * #ffffff #44424E *
-menu color hotsel      1;7;37;40 #dad9dc #44424E *
-menu color tabmsg	* #dad9dc #00000000 *
-menu color cmdline 0 #dad9dc #00000000
-menu tabmsg Press ENTER to boot or TAB to edit a menu entry
+menu color title    * #C6C2C2 *
+menu color border   * #00000000 #00000000 none
+menu color sel      * #ffffffff #5F1A1A *
+menu color hotsel   1;7;37;40 #ffffffff #401111 *
+menu color tabmsg   * #D4D0D0 #00000000 *
+menu color cmdline  0 #D4D0D0 #00000000
 menu vshift 12
 menu rows 12
+# The command line must be at least one line from the help line.
+menu cmdlinerow 16
+menu timeoutrow 16
+menu tabmsgrow 18
+menu tabmsg Press ENTER to boot or TAB to edit a menu entry
 
 label live
 	menu label ${os}-live (${arch})
 	menu default
 	linux /live/vmlinuz
-	append initrd=/live/initrd.img boot=live username=${username} 
+	append initrd=/live/initrd.img boot=live username=${username} apparmor=0
 
 label lang
 	menu label Other language (TAB to edit)
 	linux /live/vmlinuz
-	append initrd=/live/initrd.img boot=live username=${username} locales=it_IT.UTF-8 keyboard-layouts=it 
+	append initrd=/live/initrd.img boot=live username=${username} apparmor=0 locales=it_IT.UTF-8 keyboard-layouts=it 
 
 label toram
 	menu label ${os}-live (${arch}) (load to RAM)
 	linux /live/vmlinuz
-	append initrd=/live/initrd.img boot=live username=${username} toram 
+	append initrd=/live/initrd.img boot=live username=${username} apparmor=0 toram 
 
 label failsafe
 	menu label ${os}-live (${arch}) (failsafe)
-	kernel /live/vmlinuz noapic noapm nodma nomce nolapic nosmp nomodeset vga=normal 
+	kernel /live/vmlinuz noapic noapm nodma nomce nolapic nosmp nomodeset vga=normal username=${username} apparmor=0
 	append initrd=/live/initrd.img boot=live
 
 label memtest
@@ -112,6 +159,9 @@ EOF
 	notice "copying isolinux overlay"
 	sudo mkdir -p "$workdir"/binary/{live,isolinux}
 	sudo cp -rav "$blend_release_path"/isolinux-overlay/* "$workdir"/binary/isolinux/
+	sudo cp -av "$blend_release_path"/live-overlay/* "$workdir"/binary/live/
+	sudo cp -av "$blend_release_path"/docs "$workdir"/binary/
+	edit_initramfs
 #	[[ -n "$hookscripts" ]] && {
 #		sudo cp -av "$blend_release_path"/hooks "$workdir"/binary/live/
 #	}
@@ -230,9 +280,7 @@ EOF
 	sudo rsync -avx "$efi_work"/boot binary/
 	sudo rsync -avx "$efi_work"/efi  binary/
 	popd
-
 }
-
 
 iso_write_grub_cfg() {
 	fn iso_write_grub_cfg "(override)"
@@ -262,30 +310,30 @@ set timeout=6
 
 menuentry "${os}-live (${arch})" {
     set gfxpayload=keep
-    linux   /live/vmlinuz boot=live username=$username 
+    linux   /live/vmlinuz boot=live username=$username apparmor=0 
     initrd  /live/initrd.img
 }
 
 menuentry "Other language" {
 	set gfxpayload=keep
-	linux /live/vmlinuz boot=live username=$username locales=it_IT.UTF-8 keyboard-layouts=it 
+	linux /live/vmlinuz boot=live username=$username apparmor=0 locales=it_IT.UTF-8 keyboard-layouts=it 
 	initrd /live/initrd.img
 }
 
 menuentry "${os}-live (load to RAM)" {
     set gfxpayload=keep
-    linux   /live/vmlinuz boot=live username=$username toram 
+    linux   /live/vmlinuz boot=live username=$username apparmor=0 toram 
     initrd  /live/initrd.img
 }
 
 menuentry "${os}-live (failsafe)" {
     set gfxpayload=keep
-    linux   /live/vmlinuz boot=live username=$username noapic noapm nodma nomce nolapic nosmp vga=normal 
+    linux   /live/vmlinuz boot=live username=$username apparmor=0 noapic noapm nodma nomce nolapic nosmp vga=normal 
     initrd  /live/initrd.img
 }
 
 menuentry "Memory test" {
-	linux /live/memtest
+	linux16 /live/memtest86+.bin
 }
 
 EOF
@@ -323,6 +371,8 @@ rm -f /splash.png
 
 rm -f /etc/fstab
 rm -f /etc/popularity-contest.conf
+rm -f /vmlinuz.old
+rm -f /initrd.img.old
 
 # For ascii if no display manager is used. Maybe this should have a
 # contitional that's turned on/off in the config?
@@ -332,13 +382,30 @@ rm -f /etc/popularity-contest.conf
 sed -i 's/contrib//g' /etc/apt/sources.list
 sed -i 's/non-free//g' /etc/apt/sources.list
 
-## package list - Why does this make an empty file?
-#dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
-#printf "\nGo to files.devuan.org\n" >> /home/${username}/package_list
+# for amd64 only at this time
+if ls /boot | grep amd64 ; then
+	apt-get download grub-pc
+	apt-get download grub-efi-ia32
+fi
+
+##### this should be temporary
+#if dpkg -l lightdm ; then
+#	apt-get -y --purge remove lightdm lightdm-gtk-greeter liblightdm-gobject-1-0
+#	echo "Removed lightdm" > /home/devuan/which_dm
+#fi
+#if dpkg -l grub-efi-amd64-signed ; then
+#	apt-get -y remove grub-efi-amd64-signed
+#fi
+
+## package list
+dpkg -l | awk '/^ii/ { print \$2 " " \$3 }' > /home/${username}/package_list
 
 # Enable encryption (e.g. for live-usb with persistence)
 #sed -i 's/#CRYPTSETUP=/CRYPTSETUP=y/' /etc/cryptsetup-initramfs/conf-hook
 CRYPTSETUP=y update-initramfs -u -k all
+
+# Change sources.list to use deb.devuan.org
+sed -i 's/pkgmaster/deb/g' /etc/apt/sources.list
 
 apt-get update
 apt-get clean

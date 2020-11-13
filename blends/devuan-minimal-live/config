@@ -4,9 +4,9 @@
 vars+=(username userpass default_shell mkefi grubversion hookscripts)
 arrs+=(custom_deb_packages)
 
-blend_name="devuan-minimal-live_"
+blend_name="devuan-minimal-live"
 
-release="ascii"
+release="beowulf"
 
 
 username="devuan"

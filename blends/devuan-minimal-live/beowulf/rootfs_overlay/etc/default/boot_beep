@@ -1,0 +1,32 @@
+##
+## The name of the file which will contain the PID of boot_beep.sh
+##
+
+BB_TMPFILE=/tmp/boot_beep.pid
+
+##
+## the path to boot_beep.sh
+##
+
+BB_SCRIPTFILE=/etc/boot_beep
+
+##
+## the process(es) to look for. This pattern will be given to 
+## "grep -E"...
+##
+
+BB_PROCESS="(getty|login)"
+
+##
+## Set whether beeps are emitted during boot
+##
+##
+
+BB_BEEP_BOOT=TRUE
+
+##
+## Set check interval
+##
+##
+
+BB_INTERVAL=1

@@ -2,7 +2,7 @@
 ## configuration file for devuan-live blend -- ASCII release
 
 
-version="2.0.0"
+version="2.1"
 
 
 ## 
@@ -44,6 +44,8 @@ minimal_base_packages+=(
 
 ## admin package set 
 minimal_admin_packages+=(
+	cryptsetup
+	cryptsetup-bin
 	debootstrap
 	entr
 	gddrescue
@@ -52,6 +54,8 @@ minimal_admin_packages+=(
 	iftop
 	iotop
 	iw
+	lvm2
+	mdadm
 	mtr-tiny
 	multitail
 	ncdu
@@ -104,7 +108,6 @@ minimal_net_packages+=(
 	rsync
 	setnet
 	telnet
-	tin
 	traceroute
 	w3m
 	wget	
@@ -201,20 +204,20 @@ minimal_media_packages+=(
 ## misc package set
 minimal_misc_packages+=(
 	cmatrix
-    cowsay
+	cowsay
 	eject
-    figlet
+	figlet
 	fortunes-min
-    fortune-mod
-    gpm
+	fortune-mod
+	gpm
 	man-db
 	manpages
 	manpages-dev
 	mlocate
-    termsaver
-    toilet
+	termsaver
+	toilet
 	toilet-fonts
-    ttyrec	
+	ttyrec	
 	unzip
 )
 
@@ -266,25 +269,17 @@ extra_packages+=(
 
 
 purge_packages=(
-	btrfs-tools
-	cryptsetup
-	cryptsetup-bin
-	debian-keyring
 	elinks
 	elinks-data
-	git
-	git-core
-	git-man
 	liberror-perl
 	libfsplib0
 	libtre5
 	openntpd
 	tasksel
 	tasksel-data
-	vim
-	vim-runtime
 )
 
+custom_deb_packages+=(memtest86+_5.01-3_${arch}.deb)
 
 # yad needs to be first
 #$custom_deb_packages+=(yad_0.27.0-1_${arch}.deb)

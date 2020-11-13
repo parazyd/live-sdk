@@ -1,0 +1,35 @@
+#!/bin/sh
+
+## live-config(7) - System Configuration Components
+## Copyright (C) 2006-2014 Daniel Baumann <mail@daniel-baumann.ch>
+##
+## This program comes with ABSOLUTELY NO WARRANTY; for details see COPYING.
+## This is free software, and you are welcome to redistribute it
+## under certain conditions; see COPYING for details.
+
+
+#set -e
+
+
+Init ()
+{
+	# Checking if package is installed or already configured
+	if [ ! -e /var/lib/dpkg/info/console-setup.list ] || \
+	   [ -e /var/lib/live/config/console-setup ]
+	then
+		exit 0
+	fi
+
+	echo -n " console-setup "
+}
+
+Config ()
+{
+	/etc/init.d/console-setup.sh start
+
+	# Creating state file
+	touch /var/lib/live/config/console-setup
+}
+
+Init
+Config

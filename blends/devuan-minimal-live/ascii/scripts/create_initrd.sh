@@ -54,7 +54,6 @@ INITRD_MICRO=$4
 
 WORK_DIR=/tmp/initrd_new
 
-MODULE_DIRS=$(ls lib/modules/)
 
 ####
 ##
@@ -92,6 +91,8 @@ echo -n "===> Uncompressing the original init using ${INITRD_UNCOMPRESS}..."
 cd ${WORK_DIR}; `${INITRD_UNCOMPRESS} ${INITRD_ORIG} | cpio -id` 
 
 echo "done!"
+
+MODULE_DIRS=$(ls lib/modules/)
 
 ####
 ##
@@ -161,6 +162,11 @@ for M in ${MODULE_DIRS}; do
 	rm -rf ${MODULE_DIR}/drivers/scsi/bfa
 
 	echo "done!"
+
+	echo -n "===> Removing unnecessary RAID  drivers..."    
+	rm -rf ${MODULE_DIR}/drivers/md
+	echo "done!"
+
 		
 	## remove the gpu driver folder  altogether
 	
@@ -172,8 +178,10 @@ for M in ${MODULE_DIRS}; do
 
 	echo -n "===> Removing unnecessary firmware..."    
 	
-	rm -rf ${MODULE_DIR}/firmware/radeon/
-	rm -rf ${MODULE_DIR}/firmware/cxgb4
+	rm -rf lib/firmware/
+	rm -rf ${MODULE_DIR}/firmware/
+	#rm -rf ${MODULE_DIR}/firmware/radeon/
+	#rm -rf ${MODULE_DIR}/firmware/cxgb4
 
 	echo "done"
 
@@ -189,6 +197,14 @@ echo -n "===> Removing unnecessary stuff in /bin and /sbin..."
 #rm -rf bin/rsync bin/wget
 #rm -rf sbin/acpid
 #rm -rf lib/systemd
+
+rm sbin/lvm
+rm sbin/vgchange
+rm sbin/mdadm
+rm sbin/mdmon
+rm sbin/dmsetup
+
+
 
 echo "done!"
 

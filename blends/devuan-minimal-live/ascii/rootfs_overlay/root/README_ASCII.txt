@@ -11,10 +11,11 @@ The image can be burnt on a CDROM or dd-ed on a USB stick.
 The regular user is devuan/devuan. Become admin with root/toor.
 
 Designed and maintained by Vincenzo 'Katolaz' Nicosia
-Key used to sign: http://pgp.mit.edu/pks/lookup?op=get&search=0x5F20B3AE0B5F062F
 Homepage: http://kalos.mine.nu
+Iso files built and signed by fsmithred (key id 0xA73823D3094C5620 on pgp.mit.e$
 
 =======================================
+
 
 0) Boot options
 1) Packages

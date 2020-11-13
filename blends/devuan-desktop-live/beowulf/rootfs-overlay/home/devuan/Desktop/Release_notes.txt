@@ -1,0 +1,350 @@
+# Devuan 3 Beowulf Release Notes
+
+## Index
+
+ - Introduction
+ - What's new in this release
+ - Getting Devuan 3 Beowulf
+ - Upgrading to Devuan 3 Beowulf
+ - Devuan Package Repositories
+ - Non-free firmware
+ - About eudev
+ - Session management and policykit backends
+ - Workarounds for known lightdm issues/bugs
+ - About LXDE
+ - Starting X from a terminal
+ - Devuan package information pages
+ - Reporting bugs
+
+
+### Introduction
+
+This document includes technical notes relevant to Devuan 3 Beowulf.
+More information and support on specific issues can be obtained by:
+
+ - subscribing to the DNG mailing list:
+      https://mailinglists.dyne.org/cgi-bin/mailman/listinfo/dng
+ - visiting the Devuan user forum:
+      https://dev1galaxy.org
+ - shouting (but not too loudly) on one of the Devuan IRC channels:
+       #devuan (freenode) - general discussion about Devuan
+       #devuan-arm (freenode) - specific support for ARM
+ - checking the Debian Buster release notes to learn about changes in
+   the packages that Devuan does not alter.
+   https://www.debian.org/releases/buster/releasenotes
+
+### What's new in this release
+
+Changes in su
+ - The behavior of su has changed. Use 'su -' to get root's path or use
+   the full path to commands if you use only 'su'. 
+   
+ - There are several ways to get the old behavior. The easiest is to 
+   edit /etc/default/su to add the line:
+
+    ALWAYS_SET_PATH yes
+
+   See the following for more information:
+   https://www.debian.org/releases/buster/amd64/release-notes/ch-information.en.html#su-environment-variables
+   https://wiki.debian.org/NewInBuster
+   https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=905564
+
+Pulseaudio
+ - If you have no sound, make sure the following line in
+   /etc/pulse/client.conf.d/00-disable-autospawn.conf is commented as
+   shown here:
+
+   #autospawn=no
+
+Boot menu says "Debian" instead of "Devuan"
+
+ - The default setup results in the grub menu showing 'Debian' instead
+   of 'Devuan'. On UEFI hardware, this will work with secure boot.
+
+   To change it, you can edit /etc/os-release to show ID=devuan or edit
+   /etc/default/grub to GRUB_DISTRIBUTOR="Devuan". Then run update-grub
+   to generate a new boot menu.
+
+ - Note: If you're booting UEFI mode, you will also need to remove
+   grub-efi-amd64-signed and just use grub-efi-amd64. You will not be
+   able to use secure boot this way.
+
+
+### Getting Devuan 3 Beowulf
+
+Devuan 3 Beowulf is available for i386, amd64, armel, armhf, arm64 and
+ppc64el platforms. Installer isos and live CDs can be downloaded at:
+
+  http://files.devuan.org/devuan_beowulf/
+
+Please consider using one of the many mirrors, listed at:
+
+  https://devuan.org/get-devuan
+
+Detailed instructions on how to use each image are available in the
+corresponding 'README.txt' file. The SHA256SUMS of each set of images
+is signed by the developer in charge of the build. The fingerprints of
+GPG keys of all Devuan developers are listed at:
+
+  https://devuan.org/os/team
+
+In order to check that the images you downloaded are genuine and not
+corrupted, you should:
+
+ - download the image(s)
+ - download the corresponding SHA256SUMS and SHA256SUMS.asc files
+   in the same folder
+ - verify the checksums running:
+   $ sha256sum -c SHA256SUMS
+   (it could complain about missing files, but should show an "OK"
+   close to the images you have actually downloaded)
+ - verify the signature running:
+   $ gpg --no-default-keyring --keyring ./devuan-devs.gpg --verify SHA256SUMS.asc
+
+   (we assume that you have put the GPG keys in the keyring named
+   "devuan-devs.gpg". YMMV)
+
+The 'devuan-devs.gpg' keyring is provided only for convenience. The
+most correct procedure to verify that the signatures are authentic is
+by downloading the relevant public keys from a trusted keyserver,
+double-check that the fingerprint of the key matches that of the
+developer reported on https://devuan.org/os/team and then use that key
+for verification.
+
+
+### Upgrading to Devuan 3 Beowulf
+
+Direct and easy upgrade path from Devuan ASCII and migration path
+from Debian Buster to Devuan 3 Beowulf are available here: 
+
+  https://devuan.org/os/install
+
+If you are already on Beowulf, just run this command to get to the
+current release version:
+
+  apt-get update && apt-get dist-upgrade
+
+
+### Devuan Package Repositories
+
+Thanks to the support of many volunteers and donors, Devuan has
+a network of package repository mirrors.  The mirror network is
+accessible using the FQDN "deb.devuan.org". 
+
+Starting from Devuan 2.0 ASCII, users should use exclusively
+"deb.devuan.org" in their 'sources.list' file, e.g.:
+
+	deb http://deb.devuan.org/merged beowulf main
+	deb http://deb.devuan.org/merged beowulf-security main
+	deb http://deb.devuan.org/merged beowulf-updates main
+	deb http://deb.devuan.org/devuan beowulf-proposed main
+
+Along with the above addresses, the repositories are also accessible
+using the Tor network, by using our hidden service address:
+
+	deb tor+http://devuanfwojg73k6r.onion/merged beowulf main
+	deb tor+http://devuanfwojg73k6r.onion/merged beowulf-security main
+	deb tor+http://devuanfwojg73k6r.onion/merged beowulf-updates main
+	deb tor+http://devuanfwojg73k6r.onion/devuan beowulf-proposed main
+
+More information is available at:
+
+  https://devuan.org/os/packages
+
+All the mirrors contain the full Devuan package repository (all the
+Devuan releases and all the suites). They are synced every 30 minutes
+from the main Devuan package repository ("pkgmaster.devuan.org") and
+are continuously checked for sanity, integrity, and consistency. The
+package repository network is accessed through a DNS Round-Robin.
+
+An up-to-date list of mirrors in the network is available at:
+
+  http://pkgmaster.devuan.org/mirror_list.txt
+
+Users can directly access a mirror using the corresponding BaseURL.
+
+IMPORTANT NOTE: The package mirrors at "deb.devuan.org" are signed
+with the following GPG key:
+
+	pub   rsa4096 2017-09-04 [SC] [expires: 2022-09-03]
+	      E032601B7CA10BC3EA53FA81BB23C00C61FC752C
+	uid  [ unknown] Devuan Repository (Amprolla3 on Nemesis
+	              <repository@devuan.org>)
+	sub   rsa4096 2017-09-04 [E] [expires: 2022-09-03]
+
+The key is included in the package "devuan-keyring". In order to use
+deb.devuan.org, you must have `devuan-keyring_2017.10.03` or later.
+
+IMPORTANT NOTE: Devuan plans to eventually discontinue the original set
+of Devuan mirrors available at auto.mirror.devuan.org and
+{CC}.mirror.devuan.org. As a consequence, users are strongly
+encouraged to use the new set of mirrors at "deb.devuan.org".
+
+
+### Non-free firmware
+
+All Devuan 3 Beowulf install media make non-free firmware packages
+available at install time. These are only installed if your networking
+hardware requires them in order to function. You can avoid the
+automatic installation of non-free firmware by selecting the
+"Expert install" option in the installation menu.
+
+Devuan 3 Beowulf desktop-live and minimal-live images come with
+non-free firmware packages pre-installed. You can remove these packages
+after boot using the "remove_firmware.sh" script available under /root.
+
+
+### About eudev
+
+Following the inclusion of udev (a daemon in charge of device
+management) in the systemd code tree, Devuan 3 Beowulf provides the
+alternative "eudev" package. The transition from udev to eudev is
+managed through transitional packages and should be automatic and
+seamless.
+
+
+### Session management and policykit backends
+
+Devuan 3 Beowulf provides a choice of 5 Desktop Environments at
+install time: Xfce, Cinnamon, KDE, LXQt, and MATE. Other desktop
+environments and window managers are available from the repositories
+post-install.
+
+Desktop Environments rely on a session management system to allow the
+user to perform certain tasks without requiring administrator
+privileges such as suspending/rebooting/shutting down the system,
+mounting external devices, configuring networking, and so on.
+
+Two session management systems are available in Devuan Beowulf:
+
+ - consolekit
+ - logind (elogind and libpam-elogind)
+
+These session managers are mutually exclusive; only one of them can be
+installed and active at a time to avoid unwanted interference. In order
+to grant processes in the unprivileged user session access to select
+privileged operations the installed session manager is connected to the
+policykit-1 framework by a set of matching back-end libraries.
+
+The default session manager for all desktops is logind (libpam-elogind).
+Xfce and Cinnamon will work with either logind or consolekit. The other
+desktop environments will only work with logind.
+
+In order for session management to work correctly the login manager
+(aka display manager, DM) needs to register the user session with the
+installed session manager (either consolekit or logind) which in turn
+must coordinate with the relevant components of the desktop environment.
+
+Both slim and lightdm will work with either libpam-elogind or consolekit.
+Slim is the default login manager for Xfce. Lightdm is the default for
+the other desktops.
+
+
+### Workarounds for known lightdm issues/bugs
+
+lightdm prevents some accessibility features from working and gives the
+error, "Couldn't register with accessiblity bus" in ~/.xsession-errors.
+(See Debian bug [#760740](https://bugs.debian.org/760740))
+
+This can be mitigated in the current X session by running:
+
+  xprop --root --remove AT_SPI_BUS
+
+For a persistent solution edit /etc/lightdm/lightdm.conf to add:
+
+	xserver-share=false
+
+
+Power buttons are disabled on the lightdm login screen with elogind.
+(See Debian bug [#932047](https://bugs.debian.org/932047))
+
+Add the following line to /etc/pam.d/lightdm-greeter
+
+	session   optional pam_elogind.so
+
+
+### About LXDE
+
+LXDE is not presented as a choice during installation but can be added
+after booting into the new system. Note that there is a bug in lxsession
+that requires LXDE be installed without Recommends. (Debian bug #952679)
+
+  apt --no-install-recommends install lxde
+
+
+### Starting X from a terminal
+
+In Devuan 3 Beowulf, the X server can now be run without root
+privileges. As a result, some additional requirements must be met when
+launching X directly from a TTY (e.g., with 'xinit' or 'startx')
+especially on systems upgraded from Devuan Jessie.
+
+In Devuan 3 Beowulf it is sufficient to install 'elogind' and
+'libpam-elogind', and then use either 'startx' or 'xinit' as usual
+from a regular user account. In this case, the Xorg log file will be
+available under '~/.local/share/xorg/'.
+
+The system still needs to support Kernel Mode Setting (KMS).
+Therefore, this solution may not work in some virtualization
+environments (e.g., virtualbox) or if the kernel has no driver that
+supports your GPU.
+
+Alternatively, it is still possible to run X with setuid root. In this
+case, you need to install `xserver-xorg-legacy` and ensure that the
+file '/etc/X11/Xwrapper.config' contains the (uncommented) line:
+
+	needs_root_rights=yes
+
+
+### Devuan package information pages
+
+Devuan has a simple service to display information about all the
+packages available in Devuan. It can be accessed at:
+
+  https://pkginfo.devuan.org
+
+It is possible to search for package names matching a set of keywords
+and to see the description, dependencies, suggestions and
+recommendations of each package. Please report any issues with this
+service and/or get in touch if you have suggestions for how to
+improve it.
+
+
+### Reporting bugs
+
+No piece of software is perfect. And acknowledging this fact is the
+first step towards improving our software base.
+
+Devuan strongly believes in the cooperation of the community to find,
+report and solve issues. If you think you have found a bug in a
+Devuan package, please report it to:
+
+  https://bugs.devuan.org
+
+The procedure to report bugs is quite simple: just install and run
+`reportbug`, a tool that will help you to compile the bug report and to
+include any relevant information for the maintainers.
+
+`reportbug` assumes than you have a properly configured Mail User
+Agent that can send emails. If this is not the case, you can still
+prepare your bug report with `reportbug`, save it (by default reportbug
+will save the report under /tmp) and then use it as a template for an
+email to submit@bugs.devuan.org.
+
+(NOTE: Devuan does not provide an open SMTP relay for `reportbug`
+yet. If you don't know what this is about, you can safely ignore this
+information.)
+
+When the bug report is processed, you will receive a confirmation email
+containing the number assigned to the report.
+
+Before reporting a bug, please check whether the very same problem has
+already been reported by other users.
+
+`reportbug` is a tool made by Debian for Debian, over a timespan of
+about 25 years. As a result it is sometimes difficult to adapt it
+to a new setup. We are currently working to improve the integration of
+reportbug with Devuan's infrastructure and to improve the management,
+triaging and reporting of bugs. Please bear with us ;^)
+
+

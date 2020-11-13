@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Installer Guide
+Comment=Installer instructions
+Exec=/usr/lib/firefox-esr/firefox-esr /run/live/medium/docs/desktop-live-install-guide.html
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=/usr/share/pixmaps/beo-gdo-32dk.png
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/vnd.mozilla.xul+xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=Firefox-esr
+StartupNotify=true

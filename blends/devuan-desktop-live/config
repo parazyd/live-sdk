@@ -6,8 +6,8 @@ arrs+=(custom_deb_packages)
 
 blend_name="devuan-desktop-live_"
 
-release="ascii"
-
+release="beowulf"
+version="3.0.0"
 
 username="devuan"
 userpass="devuan"
@@ -23,6 +23,8 @@ efi_work="$BLENDPATH/${release}/efi-files"
 #grubversion="grub-pc"
 grubversion="grub-efi-amd64"
 
+# Uncomment for amd64
+base_packages+=(grub-efi-amd64-bin grub-efi-ia32-bin)
 
 mirror="http://pkgmaster.devuan.org/merged"
 section="main contrib non-free"

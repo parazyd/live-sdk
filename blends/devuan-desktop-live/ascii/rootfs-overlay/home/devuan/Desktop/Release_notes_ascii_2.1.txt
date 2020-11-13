@@ -1,0 +1,331 @@
+﻿# Devuan 2.1 ASCII Release Notes
+
+## Index
+
+ - Introduction
+ - What's new in this point-release
+ - Getting Devuan 2.1 ASCII
+ - Upgrading to Devuan 2.1 ASCII
+ - Devuan Package Repositories
+ - Change of "Origin" in Release and InRelease files
+ - Non-free firmware
+ - About eudev
+ - Session management and policykit backends
+ - Starting X from a terminal
+ - Devuan package information pages
+ - Reporting bugs
+
+
+### Introduction
+
+This document includes technical notes relevant to Devuan 2.1 ASCII.
+More information and support on specific issues can be obtained by:
+
+ - subscribing to the DNG mailing list:
+      https://mailinglists.dyne.org/cgi-bin/mailman/listinfo/dng
+ - visiting the Devuan user forum:
+      https://dev1galaxy.org
+ - shouting (but not too loud) on one of the Devuan IRC channels: 
+       #devuan (freenode) - general discussion about Devuan
+       #devuan-arm (freenode) - specific support for ARM 
+
+
+### What's new in ASCII 2.1
+
+Security udates:
+ - apt (1.4.9) to fix CVE-2019-3462.
+ - linux-image-4.9.0-9 (4.9.168-1+deb9u4) to fix multiple vulnerabilities
+ - firefox-esr (60.8.0esr-1~deb9u1) to fix multiple vulnerabilities
+ - policykit-1 to fix CVE-2018-19788 and CVE-2019-6133
+ - Many more. (See https://www.debian.org/security/2019/)
+
+Other changes:
+ - dbus patch to generate new dbus machine-id on boot. This behavior 
+   is configurable in /etc/default/dbus
+ - memtest86+, lvm2 and mdadm added to live isos
+
+
+### Getting Devuan 2.1 ASCII
+
+Devuan 2.1 ASCII is available for i386, amd64, armel, armhf and arm64
+platforms. Installers, live CDs, and images for virtual machines and
+ARM SOCs can be downloaded at:
+
+  http://files.devuan.org/devuan_ascii/
+
+Please consider using one of the many mirrors, listed at:
+ 
+  https://devuan.org/get-devuan
+  
+Detailed instructions on how to use each image are available in the
+corresponding 'README.txt' file. The SHA256SUMS of each set of images
+is signed by the developer in charge of the build. The fingerprints of
+GPG keys of all Devuan developers are listed at:
+
+  https://devuan.org/os/team
+
+In order to check that the images you downloaded are genuine and not
+corrupted, you should:
+
+  - download the image(s)
+  - download the corresponding SHA256SUMS and SHA256SUMS.asc files
+    in the same folder
+  - verify the checksums running:
+    $ sha256sum -c SHA256SUMS
+    (it could complain about missing files, but should show an "OK"
+     close to the images you have actually downloaded)
+  - verify the signature running:
+    $ gpg --no-default-keyring --keyring ./devuan-devs.gpg --verify SHA256SUMS.asc
+  
+    (we assume that you have put the GPG keys in the keyring named 
+     "devuan-devs.gpg". YMMV)
+
+The 'devuan-devs.gpg' keyring is provided only for convenience. The
+most correct procedure to verify that the signatures are authentic is
+by downloading the relevant public keys from a trusted keyserver,
+double-check that the fingerprint of the key matches that of the
+developer reported on https://devuan.org/os/team and then use that key
+for verification.
+
+## Upgrading to Devuan 2.1 ASCII
+
+Direct and easy upgrade paths from Devuan Jessie, Debian Jessie, and
+Debian Stretch to Devuan 2.1 ASCII are available.
+
+Upgrade from Devuan Jessie:
+
+    https://devuan.org/os/documentation/dev1fanboy/upgrade-to-ascii
+
+Migrate from Debian Jessie or Stretch:
+
+    https://devuan.org/os/documentation/dev1fanboy/migrate-to-ascii
+
+The following will be enough to upgrade if you are already using
+Devuan ASCII Beta or Devuan ASCII RC:
+
+    apt-get update && apt-get dist-upgrade
+
+
+### Devuan Package Repositories
+
+Thanks to the support of many volunteers and donors, Devuan has
+recently put in place a network of package repository mirrors.  The
+mirror network is accessible using the FQDN "deb.devuan.org" or
+"{CC}.deb.devuan.org", where {CC} is a two-letter ISO 3166-1 country
+code, such as "us" for the USA, "fr" for France, "mx" for Mexico, "nl"
+for the Netherlands, and so on.
+
+Starting from Devuan 2.0 ASCII, users should use exclusively
+"deb.devuan.org" or ""{CC}.deb.devuan.org" in their 'sources.list'
+file, e.g.:
+
+	deb http://deb.devuan.org/merged ascii main
+	deb http://deb.devuan.org/merged ascii-security main
+	deb http://deb.devuan.org/merged ascii-updates main
+	deb http://deb.devuan.org/devuan ascii-proposed main
+
+Along with the above addresses, the repositories are also accessible
+using the Tor network, by using our hidden service address:
+
+	deb tor+http://devuanfwojg73k6r.onion/merged ascii main
+	deb tor+http://devuanfwojg73k6r.onion/merged ascii-security main
+	deb tor+http://devuanfwojg73k6r.onion/merged ascii-updates main
+	deb tor+http://devuanfwojg73k6r.onion/devuan ascii-proposed main
+
+All the mirrors contain the full Devuan package repository (all the
+Devuan releases and all the suites). They are synced every 30 minutes
+from the main Devuan package repository ("pkgmaster.devuan.org"), and
+are continuously checked for sanity, integrity, and consistency. The
+package repository network is currently accessed through a DNS
+Round-Robin, but this will soon be changed into a series of
+region-based redirects to improve bandwidth usage.
+
+The updated list of mirrors belonging to the network is available at:
+
+  http://pkgmaster.devuan.org/mirror_list.txt
+
+Users could also opt for directly accessing one of the mirrors in that
+list using the corresponding BaseURL.
+
+IMPORTANT NOTE: The package mirrors at "deb.devuan.org" are signed
+with the following GPG key:
+
+	pub   rsa4096 2017-09-04 [SC] [expires: 2022-09-03]
+	      E032601B7CA10BC3EA53FA81BB23C00C61FC752C
+	uid  [ unknown] Devuan Repository (Amprolla3 on Nemesis 
+	              <repository@devuan.org>)
+	sub   rsa4096 2017-09-04 [E] [expires: 2022-09-03]
+
+The key is included in the package "devuan-keyring". In order to use
+deb.devuan.org, you must have `devuan-keyring_2017.10.03` or higher.
+
+IMPORTANT NOTE: Devuan has planned to eventually discontinue the
+original set of Devuan mirrors available at auto.mirror.devuan.org and
+{CC}.mirror.devuan.org. As a consequence, users are strongly
+encouraged to use the new set of mirrors at "deb.devuan.org" and
+"{CC}.deb.devuan.org".
+
+
+### Change of "Origin" in Release and InRelease files
+
+Starting from May 31st 2018 the "Origin:" field of Release and
+InRelease files served by deb.devuan.org is correctly set to
+"Devuan". This solves several minor issues with `lsb` reporting
+incorrect information about the OS and release. The change
+should be seamless for Devuan Jessie and Devuan ASCII users.
+ 
+
+### Non-free firmware
+
+All Devuan 2.1 ASCII install media make non-free firmware packages
+available at install time. In the majority of the cases, these
+packages are needed (and will be installed) only if your wifi adapter
+requires them. It is possible to avoid the automatic installation and
+loading of needed non-free firmware by choosing the "Expert install"
+option in the installation menu.
+
+Devuan 2.1 ASCII desktop-live and minimal-live images come with
+non-free firmware packages pre-installed. You have the option of
+removing those non-free firmware packages from the desktop-live and
+minimal-live after boot, using the "remove_firmware.sh" script
+available under /root.
+ 
+
+### About eudev
+
+Following the inclusion of udev (a daemon in charge of device
+management) in the systemd code tree, Devuan 2.1 ASCII provides the
+alternative "eudev" package. The transition from udev to eudev is
+managed through transitional packages, and should be automatic and
+seamless.
+ 
+
+### Session management and policykit backends
+
+Devuan 2.1 ASCII provides a choice of 5 Desktop Environments at
+install time (XFCE, Cinnamon, KDE, LXQT, MATE), while many other
+window managers are available from the repositories.
+
+These days, Desktop Environments rely on a session management system
+to allow the user to perform several typical tasks without requiring
+administrator privileges, including suspending/rebooting/shutting down
+the system, mounting external devices, configuring networking, and so
+on.
+
+Two of such session management systems are available in Devuan 2.1
+ASCII, namely:
+
+  - consolekit
+  - elogind
+
+These session managers are mutually exclusive, only one of them can be
+installed and active at a time to avoid unwanted interference.  In
+order to grant processes in the unprivileged user session access to
+select privileged operations, the installed session manager is
+connected to the policykit-1 framework by a set of matching back-end
+libraries.
+
+Each of the 5 DEs available in Devuan comes with a recommended default
+combination of login manager (either slim or lightdm) and session
+management system:
+
+  - XFCE: slim + consolekit
+  - Cinnamon: lightdm + elogind
+  - KDE: lightdm + elogind
+  - LXQT: lightdm + elogind
+  - MATE: slim + consolekit
+  
+In order for session management to work correctly, the login manager
+(aka display manager, DM) has to register the user session with the
+installed session manager (i.e. either consolekit or elogind), which
+in turn has to cooperate with the relevant components of the desktop
+environment. The default pairings listed above are known to work well
+and do not require user intervention, but other combinations are
+possible.
+
+
+### Starting X from a console (TTY)
+
+In Devuan 2.1 ASCII, the X server no longer requires to be run with
+root privileges. As a consequence, there are some additional
+requirements to be met when launching X directly from a TTY (i.e.,
+through 'xinit' or 'startx'), especially on systems upgraded from
+Devuan Jessie.
+
+In Devuan 2.1 ASCII it is sufficient to install 'elogind' and
+'libpam-elogind', and then use either 'startx' or 'xinit' as usual
+from a regular user account. In this case, the Xorg log file will be
+available under '~/.local/share/xorg/'.
+
+The system still needs to support Kernel Mode Setting (KMS).
+Therefore, this solution may not work in some virtualization
+environments (e.g.  virtualbox) or if the kernel has no driver that
+supports your graphic card.
+
+Alternatively, it is still possible to run X with setuid root. In this
+case, you need to install `xserver-xorg-legacy` and ensure that the
+file '/etc/X11/Xwrapper.config' contains the (uncommented) line:
+
+	needs_root_rights=yes
+
+
+### Devuan package information pages
+
+Devuan has recently set up a simple service to display information
+about all the packages available in Devuan. The service can be
+accessed at:
+
+  https://pkginfo.devuan.org
+
+It is possible to search for package names matching a set of keywords,
+and to visualise the description, dependencies, suggestions and
+recommendations of each package. Please report any issues with this
+new service and/or get in touch if you have suggestions about how it
+can be improved.
+
+
+### Reporting bugs
+
+No piece of software is perfect. And acknowledging this fact is the
+first step towards improving our software base.
+
+Devuan strongly believes in the cooperation of the community to find,
+report, and solve issues. If you think you have found a bug in a
+Devuan package, please report it to:
+
+  https://bugs.devuan.org
+
+The procedure to report bugs is quite simple: just install and run
+`reportbug`, a tool that will help you compiling the bug report and
+including any relevant information for the maintainers.
+
+`reportbug` assumes than you have a properly configured Mail User
+Agent that can send emails (and that it knows about). If this is not
+the case, you can still prepare your bug report with `reportbug`, save
+it (by default reportbug will save the report under /tmp), and then
+use it as a template for an email to submit@bugs.devuan.org.
+
+(NOTE: Devuan does not provide an open SMTP relay for `reportbug`
+yet. If you don't know what this is about, you can safely ignore this
+information).
+
+When the bug report is processed, you will receive an email
+confirmation indicating the number associated to the report.
+
+Here you can check the status of your report:
+
+  https://bugs.devuan.org/db/ix/full.html
+
+Before reporting a bug, you might probably want to check whether the
+very same problem has been already experienced and reported by other
+users, e.g.  by checking the list of packages with known bugs:
+
+  http://bugs.devuan.org/db/ix/packages.html
+
+`reportbug` is a tool made by Debian for Debian, over a timespan of
+about 25 years. This means that it is sometimes difficult to adapt it
+to a new setup. We are currently working to improve the integration of
+reportbug with the Devuan infrastructure, and to improve the
+management, triaging, and reporting of bugs. Please bear with us ;^)
+
+

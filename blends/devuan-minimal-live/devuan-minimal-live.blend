@@ -38,7 +38,7 @@ blend_preinst() {
 
 	notice "copying blend-specific debs into $R/extra/custom-packages"
 	## No more custom-packages
-	##cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
+	cp -fv "$blend_release_path"/custom_debs/*.deb "$R/extra/custom-packages"
 }
 
 blend_postinst() {
@@ -48,10 +48,10 @@ blend_postinst() {
 
 	notice "executing $blend_name postinst"
 
-	[[ "$mkefi" = "yes" ]] && {
-		iso_make_efi
-		iso_write_grub_cfg
-	}
+#	[[ "$mkefi" = "yes" ]] && {
+#		iso_make_efi
+#		iso_write_grub_cfg
+#	}
 
 	## TODO: ENABLE THIS
 	install-custdebs || zerr
@@ -71,6 +71,7 @@ iso_write_isolinux_cfg() {
 	notice "copying isolinux overlay"
 	sudo mkdir -p "$workdir"/binary/{live,isolinux}
 	sudo cp -rav "$blend_release_path"/isolinux_overlay/* "$workdir"/binary/isolinux/
+
 	#[[ -n "$hookscripts" ]] && {
 	#	sudo cp -av "$BLENDPATH"/hooks "$workdir"/binary/live/
 	#}
@@ -216,7 +217,7 @@ menuentry "${os}-live (${arch})" {
 
 menuentry "Other language" {
 	set gfxpayload=keep
-	linux /live/vmlinuz boot=live username=$username hooks=file:///lib/live/mount/medium/live/hooks/fix-lang.sh locales=it_IT.UTF-8
+	linux /live/vmlinuz boot=live username=$username locales=it_IT.UTF-8 keyboard-layouts=it
 	initrd /live/initrd.img
 }
 
@@ -272,6 +273,7 @@ rm -rf /data
 
 rm -f /etc/fstab
 rm -f /etc/popularity-contest.conf
+rm -f /var/lib/dbus/machine-id
 
 # For ascii if no display manager is used. Maybe this should have a
 # contitional that's turned on/off in the config?
@@ -283,6 +285,10 @@ sed -i 's/ non-free//g' /etc/apt/sources.list
 
 ## Disable updates
 sed -i '/-updates/s/^/## /g' /etc/apt/sources.list
+
+## replace pkgmaster with deb.devuan.org
+sed -i 's/pkgmaster/deb/g'
+
 
 ## insert  service boot_beep
 insserv boot_beep
@@ -329,12 +335,12 @@ rm /create_initrd.sh
 
 ## install additional packages
 
-cd /custom-packages
+cd /extra/custom-packages
 dpkg -i \$(find ./ -type f -name '*.deb')
 
 
 ## package list
-#dpkg -l | awk '/^ii/ { print $2 " " $3 }' > /home/${username}/package_list
+dpkg -l | awk '/^ii/ { print \$2 " " \$3 }' > /home/${username}/package_list
 
 ##apt-get update
 apt-get clean
@@ -377,5 +383,9 @@ blend_finalize() {
 
 	printf "copying ${strapdir}/boot/initrd.img to ${workdir}/binary/live/..."
 	sudo cp -L ${strapdir}/boot/initrd.img ${workdir}/binary/live/
+	printf "done\n"
+	printf "copying memtest86 to /binary/live\n"
+ 	sudo cp ${strapdir}/boot/memtest86+.bin ${workdir}/binary/live/memtest
+	printf "done\n"
 	echo "done"
 }

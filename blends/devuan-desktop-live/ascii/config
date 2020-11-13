@@ -2,7 +2,7 @@
 ## configuration file for devuan-desktop-live blend -- ASCII release
 
 
-version="2.0.0"
+#version="2.1" #This did not work here.
 
 
 base_packages+=(
@@ -12,6 +12,7 @@ base_packages+=(
 	acpi-support-base
 	aptitude
 	apt-listchanges
+	debootstrap
 	discover
 	dnsutils
 	doc-debian
@@ -55,12 +56,11 @@ extra_packages+=(
 	task-print-server
 	popularity-contest
 	refractainstaller-base
-	refractasnapshot-base
 	yad
 	refractainstaller-gui
-#	refractasnapshot-gui
 	setnet
-	
+	libgtk3-perl    #need to add this for graphical debconf
+
 )
 
 
@@ -84,6 +84,7 @@ extra_packages+=(
 
 purge_packages=(
 #	btrfs-tools
+	devuan-baseconf
 	debian-keyring
 	elinks
 	elinks-data
@@ -105,5 +106,6 @@ purge_packages=(
 
 custom_deb_packages+=(
 
-	refractasnapshot-gui_10.0.2_all.deb
+	refractasnapshot-base_10.2.1_all.deb
+	refractasnapshot-gui_10.2.2_all.deb
 )
