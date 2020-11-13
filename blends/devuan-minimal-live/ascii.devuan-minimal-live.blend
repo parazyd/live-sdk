@@ -48,7 +48,7 @@ blend_postinst() {
 
 	notice "executing $blend_name postinst"
 
-#	[[ "$mkefi" = "yes" ]] && {
+#	[[ -n "$MKEFI" ]] && {
 #		iso_make_efi
 #		iso_write_grub_cfg
 #	}
@@ -192,15 +192,15 @@ iso_write_grub_cfg() {
 	# Do the main grub.cfg (which gets loaded last):
 	cat <<EOF | sudo tee ${workdir}/binary/boot/grub/grub.cfg
 if loadfont $prefix/font.pf2 ; then
-  set gfxmode=640x480
-  insmod efi_gop
-  insmod efi_uga
-  insmod video_bochs
-  insmod video_cirrus
-  insmod gfxterm
-  insmod jpeg
-  insmod png
-  terminal_output gfxterm
+	set gfxmode=640x480
+	insmod efi_gop
+	insmod efi_uga
+	insmod video_bochs
+	insmod video_cirrus
+	insmod gfxterm
+	insmod jpeg
+	insmod png
+	terminal_output gfxterm
 fi
 
 background_image /boot/grub/splash.png
@@ -209,9 +209,9 @@ set menu_color_highlight=dark-gray/white
 set timeout=6
 
 menuentry "${os}-live (${arch})" {
-    set gfxpayload=keep
-    linux   /live/vmlinuz boot=live username=$username
-    initrd  /live/initrd.img
+	set gfxpayload=keep
+	linux   /live/vmlinuz boot=live username=$username
+	initrd  /live/initrd.img
 }
 
 menuentry "Other language" {
@@ -221,15 +221,15 @@ menuentry "Other language" {
 }
 
 menuentry "${os}-live (load to RAM)" {
-    set gfxpayload=keep
-    linux   /live/vmlinuz boot=live username=$username toram
-    initrd  /live/initrd.img
+	set gfxpayload=keep
+	linux   /live/vmlinuz boot=live username=$username toram
+	initrd  /live/initrd.img
 }
 
 menuentry "${os}-live (failsafe)" {
-    set gfxpayload=keep
-    linux   /live/vmlinuz boot=live username=$username noapic noapm nodma nomce nolapic nosmp vga=normal
-    initrd  /live/initrd.img
+	set gfxpayload=keep
+	linux   /live/vmlinuz boot=live username=$username noapic noapm nodma nomce nolapic nosmp vga=normal
+	initrd  /live/initrd.img
 }
 
 menuentry "Memory test" {
@@ -293,18 +293,18 @@ sed -i 's/pkgmaster/deb/g'
 insserv boot_beep
 
 ##  Configure framebuffer
-setcap 'cap_sys_tty_config+ep' /usr/bin/fbterm                    
-chmod u+s /usr/bin/fbterm   
+setcap 'cap_sys_tty_config+ep' /usr/bin/fbterm
+chmod u+s /usr/bin/fbterm
 
 ## Make initramfs
 
 SLIM_INITRD=initrd_devuan.img
 MICRO_INITRD=/boot/initrd.img
 INITRD_COMPR="xz --check=crc32 --x86 -6 -"
-  
+
 
 /create_initrd.sh /initrd.img /boot/\${SLIM_INITRD} \
-    "\${INITRD_COMPR}" \${MICRO_INITRD}
+	"\${INITRD_COMPR}" \${MICRO_INITRD}
 
 rm -f $(realpath /initrd.img)
 rm -f $(realpath /initrd.img.old)
@@ -357,13 +357,13 @@ ln -s \${MICRO_INITRD} /boot/initrd.img-\${KERN_ORIG}
 EOF
 
 ##	cp ${strapdir}/finalize ${strapdir}/finalize.bak
-	
+
 }
 
 ## func
 # put_packages(){
 
-# 	sudo cp -a "$R/extra/custom-packages/" ${strapdir} 
+# 	sudo cp -a "$R/extra/custom-packages/" ${strapdir}
 # }
 
 
@@ -372,9 +372,9 @@ blend_finalize() {
 	req=(strapdir username default_shell)
 	ckreq || return 1
 
-	put_create_initrd 
+	put_create_initrd
 	#put_packages
-	
+
 	put_finalize
 
 	#chroot-script -d finalize || zerr
@@ -384,7 +384,7 @@ blend_finalize() {
 	sudo cp -L ${strapdir}/boot/initrd.img ${workdir}/binary/live/
 	printf "done\n"
 	printf "copying memtest86 to /binary/live\n"
- 	sudo cp ${strapdir}/boot/memtest86+.bin ${workdir}/binary/live/memtest
+	sudo cp ${strapdir}/boot/memtest86+.bin ${workdir}/binary/live/memtest
 	printf "done\n"
 	echo "done"
 }
